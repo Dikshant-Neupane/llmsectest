@@ -30,6 +30,6 @@ def version() -> str:
     return re.search(r'^version = "([^"]+)"', text, re.M).group(1)
 
 
-def on_pre_build(config, **kwargs) -> None:  # noqa: ARG001  (mkdocs passes its config)
+def on_pre_build(config, **kwargs) -> None:
     target = pathlib.Path(__file__).resolve().parent / "docs" / "_release.md"
     target.write_text(BANNER.format(version=f"v{version()}"), encoding="utf-8")

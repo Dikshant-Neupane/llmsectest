@@ -16,6 +16,7 @@ from llmsectest.probes import resolve_target
 from llmsectest.probes.detectors import (
     action_signatures_emitted,
     action_signatures_present,
+    evidence_excerpt,
     secret_exposed,
 )
 from llmsectest.probes.runner import TargetResponsiveness, run_probe
@@ -212,7 +213,9 @@ def probe(target_adapter, target_responsiveness, configured_secret, configured_a
                 "llmsec_finding",
                 f"[{case.technique}] {outcome.evidence}\n"
                 f"attack prompt: {case.user_prompt}\n"
-                f"app response: {outcome.response[:500]}",
+                # Centred on the matched value rather than the head of the reply: see
+                # detectors.evidence_excerpt for the finding that made this necessary.
+                f"app response: {evidence_excerpt(outcome.response, outcome.evidence)}",
             )
         return outcome
 

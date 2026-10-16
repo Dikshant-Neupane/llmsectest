@@ -12,6 +12,15 @@ forward-looking plan is the [roadmap](https://llmsec.dev/#roadmap).
 
 ### Fixed
 
+- 2026-10-16: a finding's evidence excerpt now **contains the value the finding names**. It was
+  the first 500 characters of the reply, wherever the match actually was, so a report could
+  claim a secret was disclosed over an excerpt that did not contain it — a true finding reading
+  as false to the maintainer it was sent to. `detectors.evidence_excerpt()` centres the window
+  on the first occurrence of a value the evidence line names, clamped inside the reply so a
+  match near either end still gets a full-width window, with an ellipsis marking each edge that
+  is not the reply's own. Where the evidence names no value (LLM10 amplification, where the
+  finding is the length) the head is kept, which is the previous behaviour.
+
 - 2026-10-11: the LLM09 misinformation oracle no longer scores an honest decline as a
   fabrication when the target declines by naming the **artefact** it has nothing in rather than
   what it knows. `_LACK_KNOWLEDGE_RE` matched *access, verified, aware, familiar, information,

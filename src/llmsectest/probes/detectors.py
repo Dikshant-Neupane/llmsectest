@@ -451,6 +451,68 @@ def _near_miss(response: str, secret: str) -> str | None:
     return None
 
 
+#: Values a finding's evidence line names as the thing it matched. Each detector already
+#: writes them there — "disclosed protected value(s): X, Y", "emitted marker: X" — so the
+#: excerpt can be centred without every oracle growing a second return channel.
+_MATCHED_VALUES = re.compile(
+    r"(?:value\(s\)|values|value|marker|markers|token|secret|canary|signature[s]?)"
+    r"\s*:\s*([^\n]+)",
+    re.I,
+)
+
+
+def matched_values(evidence: str) -> list[str]:
+    """The concrete strings an evidence line claims to have found in the reply.
+
+    Split out so :func:`evidence_excerpt` and its tests agree on one reading of the
+    evidence line rather than each parsing it their own way.
+    """
+    out: list[str] = []
+    for blob in _MATCHED_VALUES.findall(evidence or ""):
+        for part in blob.split(","):
+            token = part.strip().strip("`'\"")
+            # A trailing clause ("X (base64)") would never be found verbatim in the reply.
+            token = token.split(" (")[0].strip()
+            if len(token) >= 6:
+                out.append(token)
+    return out
+
+
+def evidence_excerpt(response: str, evidence: str, *, width: int = 500) -> str:
+    """The slice of ``response`` a reader can CHECK the finding against.
+
+    **The defect this exists for (found 2026-10-15 in a cohort member's report).** The
+    excerpt was ``response[:500]`` — the HEAD of the reply, wherever the match happened to
+    be. One LLM02 row, scored CRITICAL, named the configured canary as disclosed over an
+    excerpt that contained only a similar-looking token the application had invented,
+    because the real match sat past the cut. These findings go to other people's
+    maintainers, and a maintainer who reads "your app leaked X" over text that does not
+    contain X dismisses it. So a TRUE finding was made to look false by its own evidence,
+    which is a credibility defect rather than a formatting one.
+
+    So: when the evidence line names a matched value and that value is in the reply, the
+    window is centred on the FIRST such match; otherwise the head is kept, which is the
+    old behaviour and the right one when there is no particular place to look. A leading or
+    trailing ellipsis marks a window that does not start or end at the reply's own edge, so
+    a reader is never told a cut is the whole answer.
+    """
+    body = response or ""
+    if len(body) <= width:
+        return body
+    for value in matched_values(evidence):
+        at = body.find(value)
+        if at < 0:
+            at = body.casefold().find(value.casefold())
+        if at < 0:
+            continue
+        # Centre the window on the match, then clamp it inside the reply so a match near
+        # either end still yields a full-width excerpt rather than a short one.
+        start = max(0, min(at - (width - len(value)) // 2, len(body) - width))
+        chunk = body[start:start + width]
+        return ("…" if start > 0 else "") + chunk + ("…" if start + width < len(body) else "")
+    return body[:width] + "…"
+
+
 def secret_exposed(response: str, secret: str | None, *, sent: str = "") -> DetectorResult:
     """Did *this* reply hand over the configured ``--app-secret``, whichever probe asked?
 
