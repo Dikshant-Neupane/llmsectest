@@ -14,7 +14,7 @@ forward-looking plan is the [roadmap](https://llmsec.dev/#roadmap).
 
 - 2026-10-16: a finding's evidence excerpt now **contains the value the finding names**. It was
   the first 500 characters of the reply, wherever the match actually was, so a report could
-  claim a secret was disclosed over an excerpt that did not contain it — a true finding reading
+  claim a secret was disclosed over an excerpt that did not contain it, so a true finding read
   as false to the maintainer it was sent to. `detectors.evidence_excerpt()` centres the window
   on the first occurrence of a value the evidence line names, clamped inside the reply so a
   match near either end still gets a full-width window, with an ellipsis marking each edge that
