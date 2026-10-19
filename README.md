@@ -28,6 +28,13 @@ carries the full report for every application in our own test cohort, byte-ident
 the tool wrote. That includes the ones that withstood everything. The members we hold back are
 listed with the reason.
 
+**To hear when it changes.** Watch this repository for
+[releases](https://github.com/wehnsdaefflae/llmsectest/releases). That is one notification per
+version. Each one says what moved for somebody running a scan, including which findings a
+scoring fix took back. 0.4.0 withdrew three this project had already published. One of those
+three had already gone to a project's maintainers. If you scanned your application with an
+earlier version, that is the part you want.
+
 > **Status: pre-alpha, under active grant development.** All ten OWASP categories ship a real
 > probe or scanner and none is a placeholder. A scan that cannot reach one says so instead of
 > passing it silently.
