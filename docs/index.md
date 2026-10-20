@@ -54,7 +54,7 @@ target, run `llmsectest --check` to see the live map.
     exposure scan of a persisted store (`--vector-store`). What remains to do is depth rather than breadth. Coverage claims here always
     match what the tool does, see `llmsectest --check`.
 
-!!! warning "The edition, and the one place our coverage is narrower than it"
+!!! warning "The edition, plus the one place our coverage is narrower"
     This tool implements the **2026** edition, published 3 August 2026, as of 20 October 2026. Read
     side by side the two lists hold the same ten risks: nothing was added, dropped, merged or split.
     Eight categories changed number and LLM07 System Prompt Leakage became **LLM08 Hidden Context
@@ -66,10 +66,10 @@ target, run `llmsectest --check` to see the live map.
     on the row.
 
     **Reports published before 20 October 2026 carry 2025 numbers** and have not been rewritten. A
-    renumber of a published record would change what that record means after the fact; the mapping
-    between the editions is in `docs/owasp-2026-migration-diff.md`. OWASP's own per-category archive
-    pages are also still 2025-numbered, which is why the 2026 edition is cited by its guide rather
-    than by ten deep links.
+    renumber of a published record would change what that record means after the fact. Both numbers
+    sit on every row of the coverage map, and each finding names the edition it was scored under.
+    OWASP's own per-category archive pages are still 2025-numbered, which is why the 2026 edition is
+    cited by its guide rather than by ten deep links.
 
 ## Funding
 

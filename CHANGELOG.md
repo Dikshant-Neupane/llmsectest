@@ -10,6 +10,30 @@ forward-looking plan is the [roadmap](https://llmsec.dev/#roadmap).
 
 ## [Unreleased]
 
+### Changed
+
+- 2026-10-20: **the OWASP LLM Top 10 numbering moved to the 2026 edition** (published 3 August
+  2026). Eight of the ten categories change number and one changes name: `LLM07` System Prompt
+  Leakage becomes `LLM08` Hidden Context Exposure. Supply Chain is `LLM04`, Data and Model
+  Poisoning `LLM05`, Excessive Agency `LLM03`, Unbounded Consumption `LLM06`, Misinformation
+  `LLM07`, Vector and Embedding Weaknesses `LLM09`, Improper Output Handling `LLM10`. `LLM01` and
+  `LLM02` are unchanged.
+
+  **Your pytest markers do not change.** `owasp_llm01` … `owasp_llm10` keep the names they have
+  always had, so no test selection, no CI filter and no custom probe needs editing. The edition
+  governs what gets *published*: a category's id and name in SARIF, the HTML and PDF reports, the
+  Markdown report, the console table and `--check`.
+
+  **Reports written before today keep their 2025 numbers.** They are records of a scan on a date
+  and rewriting them would change what they measured. To make both readable, every finding now
+  carries `owasp-edition`, and a category whose number moved also carries `owasp-category-2025`.
+  A stored SARIF can therefore be dated from the file.
+
+  **One honest limit.** `LLM08` Hidden Context Exposure is wider than the 2025 category it
+  replaces: it covers retrieved policy text and exposed tool schemas as well as the system
+  prompt. Our probes reach the system-prompt part. `--check` prints that caveat under the
+  coverage table, and the published coverage page marks the row *partial* rather than *done*.
+
 ### Fixed
 
 - 2026-10-16: a finding's evidence excerpt now **contains the value the finding names**. It was

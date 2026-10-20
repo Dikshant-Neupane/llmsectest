@@ -10,7 +10,7 @@ test suite cannot see any of that. The scanners already in your pipeline cannot 
 
 LLMSecTest attacks your running application the way an attacker would, then tells you what
 got out. It runs the
-[OWASP LLM Top 10 (2025)](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
+[OWASP LLM Top 10 (2026)](https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/)
 against a live endpoint and writes SARIF your CI already knows how to read. It is a pytest
 plugin, so it goes in the test run you already have.
 
@@ -45,14 +45,14 @@ earlier version, that is the part you want.
 |---|---|---|
 | LLM01 prompt injection | marker-injection corpus + a **red-team jailbreak set** ([JailbreakBench](https://huggingface.co/datasets/JailbreakBench/JBB-Behaviors) / AdvBench, `--redteam-set`) scored by a refusal oracle | black-box |
 | LLM02 sensitive information disclosure | four disclosure mechanisms against a named secret the app holds | black-box |
-| LLM03 supply chain | reads your dependency manifests via `--repo` across three ecosystems (PyPI, npm, Go), flags unpinned deps, index bypasses and insecure package indexes, optionally checks exact pins against OSV.dev, emits a CycloneDX SBOM | white-box |
-| LLM04 data and model poisoning | serialized-model scanner over the pickle opcode stream (`--model-scan`), never unpickling | white-box |
-| LLM05 improper output handling | asks the app to emit active payloads; a raw echo is the finding | black-box |
-| LLM06 excessive agency | four unverifiable authority claims, scored on a real invocation | black-box |
-| LLM07 system prompt leakage | extraction attacks against the app's own prompt | black-box |
-| LLM08 vector and embedding weaknesses | for RAG apps: retrieval exposure + indirect injection via a poisoned retrieved document; offline, a persisted store (`--vector-store`) is read for embedding-inversion exposure and for multi-tenant namespace isolation, where one store holds several tenants' vectors | black-box + white-box |
-| LLM09 misinformation | asks about entities that provably do not exist; confabulation is the finding | black-box |
-| LLM10 unbounded consumption | repetition-flood and output-amplification probes with a cost figure; under load (`--app-stress`), whether a guardrail that held at one request holds at N | black-box |
+| LLM03 excessive agency *(LLM06 in 2025)* | four unverifiable authority claims, scored on a real invocation | black-box |
+| LLM04 supply chain *(LLM03 in 2025)* | reads your dependency manifests via `--repo` across three ecosystems (PyPI, npm, Go), flags unpinned deps, index bypasses and insecure package indexes, optionally checks exact pins against OSV.dev, emits a CycloneDX SBOM | white-box |
+| LLM05 data and model poisoning *(LLM04 in 2025)* | serialized-model scanner over the pickle opcode stream (`--model-scan`), never unpickling | white-box |
+| LLM06 unbounded consumption *(LLM10 in 2025)* | repetition-flood and output-amplification probes with a cost figure; under load (`--app-stress`), whether a guardrail that held at one request holds at N | black-box |
+| LLM07 misinformation *(LLM09 in 2025)* | asks about entities that provably do not exist; confabulation is the finding | black-box |
+| LLM08 hidden context exposure *(LLM07 system prompt leakage in 2025)* | extraction attacks against the app's own prompt. **Partial:** the 2026 category also covers retrieved policy text and exposed tool schemas, which these probes do not reach | black-box |
+| LLM09 vector and embedding weaknesses *(LLM08 in 2025)* | for RAG apps: retrieval exposure + indirect injection via a poisoned retrieved document; offline, a persisted store (`--vector-store`) is read for embedding-inversion exposure and for multi-tenant namespace isolation, where one store holds several tenants' vectors | black-box + white-box |
+| LLM10 improper output handling *(LLM05 in 2025)* | asks the app to emit active payloads; a raw echo is the finding | black-box |
 
 Findings come out as SARIF v2.1.0, HTML, JSON and Markdown, each carrying a CVSS v4.0 base
 score reported as SARIF `security-severity`. The [coverage map](https://docs.llmsec.dev/owasp/)
@@ -62,15 +62,15 @@ has a page per category.
 
 | Flag | Unlocks | What it is |
 |---|---|---|
-| *(none)* | LLM01, LLM05, LLM09, LLM10 | attack-side markers, so they transfer to any target |
-| `--app-prompt <text\|file>` | LLM07 | the app's own system prompt, to detect it leaking |
+| *(none)* | LLM01, LLM10, LLM07, LLM06 | attack-side markers, so they transfer to any target |
+| `--app-prompt <text\|file>` | LLM08 | the app's own system prompt, to detect it leaking |
 | `--app-secret <value>` | LLM02 | a real secret the app holds |
-| `--app-action <signature>` | LLM06 | a privileged tool call, repeatable |
-| `--app-canary <value>` | LLM08 retrieval exposure | confidential content planted in the retrieved corpus |
-| `--app-rag-poison <marker>` | LLM08 indirect injection | the marker a planted poisoned document tells the model to emit |
-| `--repo <path>` | LLM03 | dependency manifests, Python/npm/Go (`--osv` for known CVEs, `--sbom` for CycloneDX) |
-| `--model-scan <path>` | LLM04 | serialized model files, read as pickle opcodes and never unpickled |
-| `--vector-store <path>` | LLM08 embedding inversion + multi-tenant isolation | a persisted vector store (Chroma sqlite, JSON store, FAISS sidecar), read offline |
+| `--app-action <signature>` | LLM03 | a privileged tool call, repeatable |
+| `--app-canary <value>` | LLM09 retrieval exposure | confidential content planted in the retrieved corpus |
+| `--app-rag-poison <marker>` | LLM09 indirect injection | the marker a planted poisoned document tells the model to emit |
+| `--repo <path>` | LLM04 | dependency manifests, Python/npm/Go (`--osv` for known CVEs, `--sbom` for CycloneDX) |
+| `--model-scan <path>` | LLM05 | serialized model files, read as pickle opcodes and never unpickled |
+| `--vector-store <path>` | LLM09 embedding inversion + multi-tenant isolation | a persisted vector store (Chroma sqlite, JSON store, FAISS sidecar), read offline |
 | `--app-stress <N>` | every app case, under load | one wave of N simultaneous requests per case. No default: the target is somebody else's running app |
 | `--redteam-set <csv>` | LLM01 depth | the JailbreakBench 100-behaviour corpus (`--redteam-benign` adds the over-refusal rate) |
 | `--redteam-generate <N>` | LLM01 breadth | N model-composed variants of each authored case, validated before they run |
@@ -166,9 +166,10 @@ pytest
 - **A security issue in this tool:** [SECURITY.md](https://github.com/wehnsdaefflae/llmsectest/blob/main/SECURITY.md), privately.
 - **What changed:** the [changelog](https://github.com/wehnsdaefflae/llmsectest/blob/main/CHANGELOG.md),
   which also carries the known limitations. One is open today:
-  [LLM06](https://docs.llmsec.dev/owasp/llm06/) reports only what your application emits, so on an
-  app that describes an action in prose instead of emitting the signature you passed, a clean LLM06
-  row means *not observed* rather than *not vulnerable*.
+  [LLM03 excessive agency](https://docs.llmsec.dev/owasp/llm06/) reports only what your application
+  emits. On an app that describes an action in prose instead of emitting the signature you passed, a
+  clean row means *not observed* rather than *not vulnerable*. The page keeps its `llm06` address
+  from the 2025 numbering so existing links still work.
 - **What is planned:** the [roadmap](https://llmsec.dev/#roadmap).
 
 ## Funding
