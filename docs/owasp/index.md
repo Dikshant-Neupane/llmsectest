@@ -4,8 +4,8 @@ LLMSecTest maps directly to the [OWASP Top 10 for LLM Applications
 (2026)](https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/), published 2026-08-03. The
 numbering below is the 2026 edition's. Eight of the ten categories carry a different number than
 they did in 2025 and one is renamed, so a report or an advisory of ours dated before 2026-10-20
-uses the 2025 numbers. Every row below carries both numbers, and every finding a scan writes now
-names the edition it was scored under.
+uses the 2025 numbers. Every row below carries both numbers. Every finding a scan writes now names
+the edition it was scored under.
 
 !!! note "Why the page filenames still read `llm07.md`"
     The renumbering is a permutation: System Prompt Leakage moves 07 → 08 while Vector and

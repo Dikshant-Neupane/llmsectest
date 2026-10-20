@@ -32,7 +32,7 @@ forward-looking plan is the [roadmap](https://llmsec.dev/#roadmap).
   **One honest limit.** `LLM08` Hidden Context Exposure is wider than the 2025 category it
   replaces: it covers retrieved policy text and exposed tool schemas as well as the system
   prompt. Our probes reach the system-prompt part. `--check` prints that caveat under the
-  coverage table, and the published coverage page marks the row *partial* rather than *done*.
+  coverage table. The published coverage page marks the row *partial* rather than *done*.
 
 ### Fixed
 

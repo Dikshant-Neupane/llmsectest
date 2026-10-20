@@ -67,7 +67,7 @@ target, run `llmsectest --check` to see the live map.
 
     **Reports published before 20 October 2026 carry 2025 numbers** and have not been rewritten. A
     renumber of a published record would change what that record means after the fact. Both numbers
-    sit on every row of the coverage map, and each finding names the edition it was scored under.
+    sit on every row of the coverage map. Each finding also names the edition it was scored under.
     OWASP's own per-category archive pages are still 2025-numbered, which is why the 2026 edition is
     cited by its guide rather than by ten deep links.
 
