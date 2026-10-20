@@ -30,6 +30,7 @@ import re
 import pytest
 
 import llmsectest.__main__ as cli
+import llmsectest.reporting.owasp_metadata as owasp_metadata
 
 # The CLI parses argv by hand: every option reaches one of these helpers as a string
 # literal, so the source is the register of what the CLI accepts.
@@ -128,31 +129,111 @@ def test_help_has_a_worked_example_for_custom_app_request_shapes():
         assert option in examples
 
 
+# A MARKER'S NUMBER IS NOT ITS PUBLISHED NUMBER (2026-10-20). Both tests below used to
+# find their row with `marker.removeprefix("owasp_llm")`, which is only correct while the
+# internal marker numbering and the published numbering coincide. Under the 2026 edition
+# eight of ten differ — the `owasp_llm05` marker publishes as LLM10 — so every row lookup
+# landed on another category's row and ten of these parametrised cases failed at once. The
+# lookup goes through the edition layer now, which is the same function the CLI prints from.
+#
+# The COLUMN is found by its header name for the same class of reason: the table grew a
+# "Was (2025)" column during the migration, which shifted the modality from index 2 to 3
+# and would have broken a positional read even with the right row.
+def _coverage_row(published_id: str) -> str:
+    index = (_DOCS / "index.md").read_text(encoding="utf-8")
+    rows = [ln for ln in index.splitlines() if ln.startswith(f"| [{published_id} ")]
+    assert len(rows) == 1, (
+        f"expected exactly one coverage-table row for {published_id}, found {len(rows)}")
+    return rows[0]
+
+
+def _column(row: str, header: str) -> str:
+    """One cell of a pipe table row, located by the column's heading."""
+    index = (_DOCS / "index.md").read_text(encoding="utf-8")
+    head = next(ln for ln in index.splitlines() if ln.startswith("| Category ("))
+    names = [c.strip().lower() for c in head.split("|")]
+    try:
+        at = names.index(header.lower())
+    except ValueError:
+        raise AssertionError(
+            f"the coverage table has no {header!r} column; its headings are "
+            f"{[n for n in names if n]}") from None
+    return row.split("|")[at]
+
+
+def _published_id(marker: str) -> str:
+    category = owasp_metadata.get_owasp_category(marker)
+    assert category is not None, f"{marker} is not a category the metadata layer carries"
+    return category.id
+
+
 @pytest.mark.parametrize("marker", sorted(cli._TESTABILITY))
 def test_the_docs_coverage_map_agrees_with_check_about_white_box(marker):
     """The map's per-category row carries every modality ``--check`` prints for it."""
-    index = (_DOCS / "index.md").read_text(encoding="utf-8")
-    number = marker.removeprefix("owasp_llm")
-    row = [ln for ln in index.splitlines()
-           if ln.startswith(f"| [LLM{number} ")]
-    assert len(row) == 1, f"no single coverage-table row for {marker}"
-    modality = row[0].split("|")[2].lower()
+    row = _coverage_row(_published_id(marker))
+    modality = _column(row, "Modality").lower()
     for word in cli._TESTABILITY[marker][0].split(" + "):
         assert word in modality, (
-            f"{marker}: --check says {cli._TESTABILITY[marker][0]!r}, "
-            f"the coverage table row says {modality.strip()!r}"
+            f"{marker} ({_published_id(marker)}): --check says "
+            f"{cli._TESTABILITY[marker][0]!r}, the coverage table row says "
+            f"{modality.strip()!r}"
         )
 
 
 @pytest.mark.parametrize("marker", sorted(cli._SCANNER_INPUT))
 def test_a_white_box_scanner_names_its_input_flag_on_the_map(marker):
     """A scanner a user cannot discover the input for is a scanner they will not run."""
-    index = (_DOCS / "index.md").read_text(encoding="utf-8")
-    number = marker.removeprefix("owasp_llm")
-    row = next(ln for ln in index.splitlines() if ln.startswith(f"| [LLM{number} "))
+    row = _coverage_row(_published_id(marker))
     _, hint = cli._SCANNER_INPUT[marker]
     option = re.search(r"--[a-z][a-z0-9-]+", hint).group(0)
-    assert option in row, f"{marker}: coverage row never names {option}"
+    assert option in row, (
+        f"{marker} ({_published_id(marker)}): coverage row never names {option}")
+
+
+def test_the_cli_coverage_map_publishes_the_default_edition(capsys):
+    """``--check`` IS the authority `STATE.md` and `docs/owasp/index.md` both defer to.
+
+    It published 2025 ids and names through the whole of the 2026 migration and nothing
+    failed: the suite and `bin/verify-claims.py` read the edition layer, while
+    ``check_coverage`` iterated the raw marker table. Found on 2026-10-20 by the assigned
+    self-heal re-derivation, by running the command instead of reading the code.
+    """
+    cli.check_coverage()
+    out = capsys.readouterr().out
+    edition = owasp_metadata.DEFAULT_OWASP_EDITION
+    assert f"OWASP LLM Top 10 ({edition})" in out, "the header names no edition, or the wrong one"
+    for marker in cli._TESTABILITY:
+        category = owasp_metadata.get_owasp_category(marker, edition)
+        assert f"{category.id}: {category.name}" in out, (
+            f"{marker} is not published as {category.id}: {category.name}")
+
+
+def test_the_cli_coverage_map_lists_the_categories_in_published_order(capsys):
+    """Markers are stable and the published numbering moves eight of ten, so iterating the
+    marker table printed a top-ten list numbered 01, 02, 04, 05, 10, 03, 08, 09, 07, 06."""
+    cli.check_coverage()
+    out = capsys.readouterr().out
+    printed = [ln.split("] ", 1)[1].split(":", 1)[0]
+            for ln in out.splitlines() if ln.startswith("  [") and "] LLM" in ln]
+    assert printed == sorted(printed), f"coverage rows are out of published order: {printed}"
+    assert len(printed) == len(cli._TESTABILITY), (
+        f"{len(printed)} row(s) printed for {len(cli._TESTABILITY)} categories")
+
+
+def test_a_category_our_probes_do_not_fully_reach_says_so_on_the_map(capsys):
+    """The 2026 edition widens one category past our corpus. A coverage map that prints the
+    number and withholds the limit overstates the tool, which is the one thing the
+    migration decision was warned about."""
+    cli.check_coverage()
+    out = capsys.readouterr().out
+    caveated = [m for m in cli._TESTABILITY
+                if owasp_metadata.get_owasp_category(m).scope_caveat]
+    if not caveated:
+        pytest.skip("no category carries a scope caveat in this edition")
+    for marker in caveated:
+        category = owasp_metadata.get_owasp_category(marker)
+        assert category.scope_caveat in out, (
+            f"{category.id} carries a scope caveat the coverage map never prints")
 
 
 # The third surface that describes the CLI, added 2026-09-09 with

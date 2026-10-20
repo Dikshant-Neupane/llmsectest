@@ -7,7 +7,11 @@ from pathlib import Path
 from .compliance_mapper import get_compliance_summary, get_frameworks_covered
 from .constants import RISK_LEVEL_EMOJI, SEVERITY_COLORS_HEX, SEVERITY_ORDER
 from .models import TestResult
-from .owasp_metadata import get_owasp_category, get_owasp_markers_from_test
+from .owasp_metadata import (
+    get_owasp_category,
+    get_owasp_category_by_id,
+    get_owasp_markers_from_test,
+)
 from .statistics import (
     attack_tally,
     calculate_statistics,
@@ -188,7 +192,7 @@ class HTMLReportGenerator:
 
         for category_id in sorted(stats["owasp_categories"].keys()):
             cat_stats = stats["owasp_categories"][category_id]
-            category = get_owasp_category(f"owasp_{category_id.lower()}")
+            category = get_owasp_category_by_id(category_id)
 
             if not category:
                 continue

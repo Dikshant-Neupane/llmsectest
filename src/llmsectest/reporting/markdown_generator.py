@@ -4,7 +4,11 @@ from datetime import UTC, datetime
 
 from .constants import SEVERITY_BADGE_COLORS, SEVERITY_EMOJI, SEVERITY_ORDER
 from .models import TestResult
-from .owasp_metadata import get_owasp_category, get_owasp_markers_from_test
+from .owasp_metadata import (
+    get_owasp_category,
+    get_owasp_category_by_id,
+    get_owasp_markers_from_test,
+)
 from .statistics import calculate_statistics, get_test_severity
 
 
@@ -96,7 +100,7 @@ class MarkdownReportGenerator:
 
         for category_id in sorted(stats["owasp_categories"].keys()):
             cat_stats = stats["owasp_categories"][category_id]
-            category = get_owasp_category(f"owasp_{category_id.lower()}")
+            category = get_owasp_category_by_id(category_id)
 
             if not category:
                 continue
@@ -130,7 +134,7 @@ class MarkdownReportGenerator:
         owasp_section += "\n### Category Details\n\n"
 
         for category_id in sorted(stats["owasp_categories"].keys()):
-            category = get_owasp_category(f"owasp_{category_id.lower()}")
+            category = get_owasp_category_by_id(category_id)
 
             if not category:
                 continue

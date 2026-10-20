@@ -1,6 +1,6 @@
 """OWASP Top 10 for LLM Applications metadata and mappings."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 
 @dataclass
@@ -20,6 +20,10 @@ class OWASPCategory:
     # Representative CVSS:4.0 base vector for this vulnerability class (worst-case
     # for the category). Scored by :mod:`llmsectest.reporting.cvss`.
     cvss_vector: str = ""
+    #: What the EDITION's scope includes that our probes do not reach, if anything. Empty for
+    #: every category whose scope our corpus covers. Set by the edition layer below rather
+    #: than by hand, so a coverage claim and its limit cannot drift apart.
+    scope_caveat: str = ""
 
 
 OWASP_LLM_CATEGORIES: dict[str, OWASPCategory] = {
@@ -419,16 +423,145 @@ for _marker, _vector in _CVSS_VECTORS.items():
     OWASP_LLM_CATEGORIES[_marker].cvss_vector = _vector
 
 
-def get_owasp_category(marker: str) -> OWASPCategory | None:
-    """Get OWASP category metadata for a given marker.
+#: THE EDITION LAYER. Mark, 2026-10-20: "migrate everything to the owasp llm top 10 2026
+#: numbering" (ask-090, answered 1).
+#:
+#: The marker keys (`owasp_llm01` ... `owasp_llm10`) are INTERNAL pytest markers and they do
+#: not move. That is deliberate and it is what makes this migration a data change rather than
+#: a sweep of 400 call sites: renumbering the keys would silently change what `owasp_llm06`
+#: MEANS, so every stored baseline, every published report and every advisory already filed
+#: would start reading as a different category. The published values — `id` and `name` — are
+#: what the edition changes.
+#:
+#: The mapping is the project's own measurement of the 2026 PDF itself
+#: (`docs/owasp-2026-migration-diff.md`, 2026-08-21, 122 pages): nothing added, dropped,
+#: merged or split, all ten map one to one, eight renumbered, exactly one renamed.
+OWASP_EDITIONS = ("2025", "2026")
+
+#: The edition published values resolve to when a caller names none.
+DEFAULT_OWASP_EDITION = "2026"
+
+#: marker -> (id, name) for 2026. Only what the edition actually changes is listed; a marker
+#: absent here keeps its 2025 id and name, which is LLM01 and LLM02.
+_EDITION_IDS: dict[str, dict[str, tuple[str, str]]] = {
+    "2025": {},
+    "2026": {
+        "owasp_llm03": ("LLM04", "Supply Chain"),
+        "owasp_llm04": ("LLM05", "Data and Model Poisoning"),
+        "owasp_llm05": ("LLM10", "Improper Output Handling"),
+        "owasp_llm06": ("LLM03", "Excessive Agency"),
+        # The one category that is renamed and rescoped rather than renumbered alone. 2025
+        # scoped it to the system prompt; 2026 scopes it to hidden context of any kind,
+        # including retrieved policy text and the schemas of exposed tools.
+        "owasp_llm07": ("LLM08", "Hidden Context Exposure"),
+        "owasp_llm08": ("LLM09", "Vector and Embedding Weaknesses"),
+        "owasp_llm09": ("LLM07", "Misinformation"),
+        "owasp_llm10": ("LLM06", "Unbounded Consumption"),
+    },
+}
+
+#: WHERE A CATEGORY'S REFERENCE POINTS, per edition.
+#:
+#: The 2025 rows deep-link `llmtop10.com/llm0n`, one page per category. THOSE PAGES DO NOT
+#: EXIST FOR 2026: OWASP's own category archive still serves the 2025 numbering, which is why
+#: this migration was held three times. Pointing `LLM08 Hidden Context Exposure` at
+#: `llmtop10.com/llm08` would cite the 2025 Vector and Embedding Weaknesses page under a 2026
+#: name, so the 2026 edition cites the edition's own two canonical surfaces instead and claims
+#: no per-category page until OWASP publishes one.
+_EDITION_REFERENCES: dict[str, list[str]] = {
+    "2026": [
+        "https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/",
+        "https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/tree/main/2026/final",
+    ],
+}
+
+#: WHERE OUR PROBES DO NOT REACH THE EDITION'S SCOPE, stated on the record rather than implied
+#: by a number. 2026 widens LLM07:2025 into LLM08:2026 Hidden Context Exposure, and our probe
+#: corpus asks the target to restate its instructions — one case of several. Claiming LLM08
+#: coverage without saying this would overstate what the tool measures, which is the one thing
+#: the migration decision was warned about.
+_EDITION_SCOPE_CAVEATS: dict[str, dict[str, str]] = {
+    "2026": {
+        "owasp_llm07": (
+            "Our probes cover the system-prompt subset of LLM08:2026 Hidden Context Exposure. "
+            "Retrieved policy text and exposed tool schemas are in the 2026 scope and are not "
+            "yet probed, so a clean result here is not a clean result for the whole category."
+        ),
+    },
+}
+
+
+def resolve_edition(edition: str | None = None) -> str:
+    """The edition to publish under. Raises on an edition we do not carry."""
+    chosen = edition or DEFAULT_OWASP_EDITION
+    if chosen not in OWASP_EDITIONS:
+        raise ValueError(
+            f"unknown OWASP LLM Top 10 edition {chosen!r}; carried editions are "
+            f"{', '.join(OWASP_EDITIONS)}"
+        )
+    return chosen
+
+
+def get_owasp_category(marker: str, edition: str | None = None) -> OWASPCategory | None:
+    """Get OWASP category metadata for a given marker, in a given edition's numbering.
 
     Args:
-        marker: The marker name (e.g., 'owasp_llm01')
+        marker: The marker name (e.g., 'owasp_llm01'). Marker keys are edition-independent.
+        edition: '2025' or '2026'. Defaults to :data:`DEFAULT_OWASP_EDITION`.
 
     Returns:
-        OWASPCategory if found, None otherwise
+        OWASPCategory if found, None otherwise. The returned object is a COPY whenever the
+        edition changes anything, so the module-level table is never mutated by a read.
     """
-    return OWASP_LLM_CATEGORIES.get(marker)
+    category = OWASP_LLM_CATEGORIES.get(marker)
+    if category is None:
+        return None
+    chosen = resolve_edition(edition)
+    moved = _EDITION_IDS.get(chosen, {}).get(marker)
+    references = _EDITION_REFERENCES.get(chosen)
+    caveat = _EDITION_SCOPE_CAVEATS.get(chosen, {}).get(marker)
+    if not moved and references is None and not caveat:
+        return category
+    changes: dict[str, object] = {}
+    if moved:
+        changes["id"], changes["name"] = moved
+    if references is not None:
+        changes["references"] = list(references)
+    if caveat:
+        changes["scope_caveat"] = caveat
+    return replace(category, **changes)
+
+
+def get_owasp_category_by_id(
+    category_id: str, edition: str | None = None
+) -> OWASPCategory | None:
+    """Look a category up by its PUBLISHED id, e.g. ``LLM08``.
+
+    THE INVERSE HAS TO BE A LOOKUP, NOT STRING SURGERY (2026-10-20). Five renderers used to
+    recover a marker from a published id by lowercasing it and prefixing ``owasp_``, which is
+    only correct while the published numbering and the marker numbering happen to coincide.
+    Under the 2026 edition they do not: the LLM10 row is the ``owasp_llm05`` marker (Improper
+    Output Handling), so ``owasp_llm10`` returned the wrong category and every table printed
+    a correct id beside the wrong NAME. A wrong name on a security report is worse than a
+    missing one, and nothing failed — it just read plausibly.
+
+    Args:
+        category_id: a published id such as ``LLM03``.
+        edition: '2025' or '2026'. Defaults to :data:`DEFAULT_OWASP_EDITION`.
+    """
+    chosen = resolve_edition(edition)
+    wanted = category_id.strip().upper()
+    for marker in OWASP_LLM_CATEGORIES:
+        category = get_owasp_category(marker, chosen)
+        if category and category.id.upper() == wanted:
+            return category
+    return None
+
+
+def category_label(marker: str, edition: str | None = None) -> str:
+    """`LLM08 Hidden Context Exposure` — the published label, in one place."""
+    category = get_owasp_category(marker, edition)
+    return f"{category.id} {category.name}" if category else marker
 
 
 def get_owasp_markers_from_test(markers: list[str]) -> list[str]:

@@ -6,6 +6,16 @@ from .models import TestResult
 from .owasp_metadata import OWASP_LLM_CATEGORIES, get_owasp_category, get_owasp_markers_from_test
 
 
+def _published_id(marker: str) -> str:
+    """The published category id for a marker, in the edition in force.
+
+    Every rule in this module that singles out a category keys off a marker and resolves it
+    here, so the OWASP edition can renumber without separating a rule from its rows.
+    """
+    category = get_owasp_category(marker)
+    return category.id if category else marker
+
+
 def get_test_severity(result: TestResult) -> str:
     """Extract severity level from test markers."""
     for severity in ["critical", "high", "medium", "low", "info"]:
@@ -25,7 +35,15 @@ COVERAGE_MAP_MARKER = "llmsec_coverage_map"
 #: whichever probe got it out. Deliberately a single id rather than a general mechanism:
 #: this is the one case we have measured, and a category that voids another category is a
 #: strong claim that should be made once, explicitly, where a reader can find it.
-SECRET_CATEGORY = "LLM02"
+#: DERIVED FROM THE MARKER, NEVER WRITTEN AS A NUMBER (2026-10-20). This was the literal
+#: "LLM02" until the 2026 edition migration, and the literal was a latent defect: the tally
+#: keys `by_category` by the PUBLISHED id (`get_owasp_category(marker).id`), so the moment the
+#: published numbering moved, every hardcoded id here stopped matching the rows it was meant
+#: to annotate and the annotations vanished in silence — no error, just a report missing its
+#: doubt sentences. Seven tests caught it. Deriving the id from the stable marker key means
+#: an edition change cannot separate a rule from the rows it applies to.
+SECRET_MARKER = "owasp_llm02"
+SECRET_CATEGORY = _published_id(SECRET_MARKER)
 
 VOIDED_REASON = (
     "a reply in this run contained the value passed to --app-secret. A different probe got "
@@ -56,11 +74,14 @@ VOIDED_REASON = (
 MARKER_CHECKS = (
     (SECRET_CATEGORY, "--app-secret",
      "llmsec_secret_configured", "llmsec_secret_exposed"),
-    ("LLM06", "--app-action",
+    # Marker-derived, not written as numbers: `owasp_llm06` publishes as LLM03 under the 2026
+    # edition and `owasp_llm08` as LLM09, so a literal here would annotate rows that no
+    # longer exist.
+    (_published_id("owasp_llm06"), "--app-action",
      "llmsec_action_configured", "llmsec_action_observed"),
-    ("LLM08", "--app-canary",
+    (_published_id("owasp_llm08"), "--app-canary",
      "llmsec_canary_configured", "llmsec_canary_observed"),
-    ("LLM08", "--app-rag-poison",
+    (_published_id("owasp_llm08"), "--app-rag-poison",
      "llmsec_poison_configured", "llmsec_poison_observed"),
 )
 

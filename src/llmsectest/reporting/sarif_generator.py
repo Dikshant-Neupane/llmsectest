@@ -20,6 +20,7 @@ from .owasp_metadata import (
     get_owasp_category,
     get_owasp_markers_from_test,
     get_security_tags,
+    resolve_edition,
 )
 from .statistics import attack_tally, exercised_categories
 
@@ -404,10 +405,27 @@ class SARIFGenerator:
                 else:
                     properties["security-severity"] = self._get_numeric_severity(result)
 
-                # Add OWASP-specific properties
+                # Add OWASP-specific properties.
+                #
+                # **The edition travels with the number (2026-10-20).** Eight of the ten
+                # categories changed number between the 2025 and 2026 editions, so
+                # `owasp-category: LLM03` alone is ambiguous: it is Supply Chain under 2025
+                # and Excessive Agency under 2026. A consumer reading a stored SARIF has no
+                # way to date it from the file, and this project has published 92 reports
+                # carrying 2025 numbers. So every finding names the edition it was scored
+                # under, and the 2025 number travels beside it wherever the two differ —
+                # which is what lets the old reports stay readable instead of being rewritten.
                 if owasp_category:
                     properties["owasp-category"] = owasp_category.id
                     properties["owasp-name"] = owasp_category.name
+                    properties["owasp-edition"] = resolve_edition()
+                    legacy = (
+                        get_owasp_category(owasp_markers[0], edition="2025")
+                        if owasp_markers
+                        else None
+                    )
+                    if legacy is not None and legacy.id != owasp_category.id:
+                        properties["owasp-category-2025"] = legacy.id
 
                 # Add CWE tags
                 cwe_ids = get_cwe_tags(result.markers)

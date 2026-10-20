@@ -136,14 +136,18 @@ def test_llm02_attempts_are_voided_not_withstood_when_the_run_exposed_the_secret
 
 
 def test_the_leak_stays_filed_under_the_category_that_found_it():
-    """One probe, one category. Re-filing the LLM07 finding as LLM02 would hide how the
-    secret came out, which is the only part that tells a reader what to fix."""
+    """One probe, one category. Re-filing the hidden-context finding as LLM02 would hide how
+    the secret came out, which is the only part that tells a reader what to fix.
+
+    Under the 2026 numbering the `owasp_llm07` marker publishes as LLM08 Hidden Context
+    Exposure; it was LLM07 System Prompt Leakage in 2025.
+    """
     tally = attack_tally([
         _probe("llm02_direct", "passed", "owasp_llm02"),
         _probe("llm07_repeat", "failed", "owasp_llm07", exposed="…"),
     ])
 
-    assert tally["by_category"]["LLM07"]["findings"] == 1
+    assert tally["by_category"]["LLM08"]["findings"] == 1
     assert tally["by_category"]["LLM02"]["findings"] == 0
 
 

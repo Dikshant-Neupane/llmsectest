@@ -182,11 +182,30 @@ def check_coverage():
     from .probes import SCANNER_CATEGORIES, covered_categories
     from .reporting.cvss import cvss_for_category, library_available
 
+    from .reporting.owasp_metadata import (DEFAULT_OWASP_EDITION, get_owasp_category,
+                                           resolve_edition)
+
     covered = set(covered_categories())
     print_banner()
-    print("\nOWASP LLM Top 10 (2025), coverage & how each is tested:")
+    # THE EDITION IS RESOLVED, NEVER SPELLED OUT HERE (2026-10-20). This header read
+    # "(2025)" and the rows below it read the raw marker table, so the product's own
+    # coverage map went on publishing 2025 ids and names for a whole migration: the test
+    # suite and `bin/verify-claims.py` both passed, because both read the edition layer
+    # while this function did not. The CLI is what `STATE.md` names as the authority on
+    # what the tool covers, which made it the one surface where being wrong was quotable.
+    edition = resolve_edition(DEFAULT_OWASP_EDITION)
+    print(f"\nOWASP LLM Top 10 ({edition}), coverage & how each is tested:")
     print("-" * 78)
-    for marker, category in sorted(OWASP_LLM_CATEGORIES.items()):
+    # SORTED BY PUBLISHED ID, not by marker. Markers are stable and the 2026 numbering
+    # moves eight of ten, so marker order prints LLM01, LLM02, LLM04, LLM05, LLM10, LLM03,
+    # LLM08, LLM09, LLM07, LLM06 — a top-ten list that does not count.
+    rows = []
+    for marker in OWASP_LLM_CATEGORIES:
+        category = get_owasp_category(marker, edition)
+        if category is not None:
+            rows.append((category.id, marker, category))
+    caveats = []
+    for _, marker, category in sorted(rows):
         modality, requires = _TESTABILITY.get(marker, ("?", None))
         if marker in covered:
             kind = "scan  " if marker in SCANNER_CATEGORIES else "probes"
@@ -195,16 +214,39 @@ def check_coverage():
             status = f"  planned  ({modality}, {requires or 'planned'})"
         cvss = cvss_for_category(marker)
         cvss_col = f"CVSS {cvss.base_score:>4} {cvss.severity}" if cvss else ""
-        print(f"  [{status}] {category.id}: {category.name:<34s} {cvss_col}")
+        caveat_mark = " *" if category.scope_caveat else ""
+        print(f"  [{status}] {category.id}: "
+              f"{category.name + caveat_mark:<34s} {cvss_col}")
+        if category.scope_caveat:
+            caveats.append(f"  * {category.id} {category.name}: {category.scope_caveat}")
     print("-" * 78)
+    # A COVERAGE MAP THAT HIDES ITS LIMIT OVERSTATES THE TOOL. The 2026 edition widens one
+    # category past what our corpus reaches; the number alone cannot say so, so the caveat
+    # prints under the table it qualifies rather than in a changelog nobody reads here.
+    if caveats:
+        print("\n".join(caveats))
+        print("-" * 78)
     print(f"\nImplemented: {len(covered)}/{len(OWASP_LLM_CATEGORIES)} categories.")
     print("CVSS v4.0 base scores per category (worst-case for the class); reported as")
     print(f"SARIF security-severity. cvss library installed: {library_available()} "
           "(baked scores used otherwise).")
     print("Black-box categories test your running app via  --target app:<url> .")
-    print("App scans always exercise LLM01+LLM05+LLM09+LLM10; add --app-prompt / --app-secret /")
+
+    # DERIVED, because these two lines name categories by number and the numbers move with
+    # the edition. Written out by hand they were 2025's, printed under a 2026 header.
+    def _ids(*markers: str) -> str:
+        out = []
+        for marker in markers:
+            category = get_owasp_category(marker, edition)
+            out.append(category.id if category else marker)
+        return "+".join(out)
+
+    print(f"App scans always exercise "
+          f"{_ids('owasp_llm01', 'owasp_llm05', 'owasp_llm09', 'owasp_llm10')}; "
+          "add --app-prompt / --app-secret /")
     print("--app-action (repeatable) / --app-canary / --app-rag-poison to unlock")
-    print("LLM07 / LLM02 / LLM06 / LLM08 (retrieval exposure + RAG indirect injection).")
+    print(f"{_ids('owasp_llm07', 'owasp_llm02', 'owasp_llm06', 'owasp_llm08')} "
+          "(retrieval exposure + RAG indirect injection).")
     print("--redteam-generate <N> adds N model-composed variants of each authored LLM01")
     print("case, validated first so a rewrite that lost its marker never scores as a")
     print("withstood attack. An addition to the authored corpus, never a replacement.")
@@ -217,15 +259,19 @@ def check_coverage():
     print("so an app whose persona hangs off a conversation is scanned with a persona")
     print("or with independent probes, never both.")
     print("--app-timeout <seconds> caps each app request (a slow endpoint is recorded")
-    print("as inconclusive, not left to hang the scan), except on the two bounded LLM10")
+    print("as inconclusive, not left to hang the scan), except on the two bounded "
+          f"{_ids('owasp_llm10')}")
     print("probes, where exhausting the budget is itself the finding, provided the app")
     print("answered its other probes well inside that same budget.")
     print("White-box categories need app internals (deps/model files) and run from a path.")
-    print("LLM03: --repo <path> scans dependency manifests offline; adding --osv also")
+    print(f"{_ids('owasp_llm03')}: --repo <path> scans dependency manifests offline; "
+          "adding --osv also")
     print("queries OSV.dev for known CVEs in exactly-pinned versions (networked, no key).")
-    print("LLM04: --model-scan <path> scans serialized model files (pickle/PyTorch-zip/")
+    print(f"{_ids('owasp_llm04')}: --model-scan <path> scans serialized model files "
+          "(pickle/PyTorch-zip/")
     print("numpy) offline for code-execution imports that run on load (a poisoned model).")
-    print("LLM08: --vector-store <path> scans a persisted vector store (Chroma sqlite,")
+    print(f"{_ids('owasp_llm08')}: --vector-store <path> scans a persisted vector store "
+          "(Chroma sqlite,")
     print("JSON stores, FAISS sidecars) for how much of the corpus a reader of the store")
     print("gets without inverting anything. Offline, and the sidecar is never unpickled.")
     print("LLM01: --redteam-set <csv> runs the full JailbreakBench harmful set; "

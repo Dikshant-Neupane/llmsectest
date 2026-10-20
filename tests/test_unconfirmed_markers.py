@@ -65,7 +65,7 @@ def test_a_configured_action_never_seen_is_flagged_unconfirmed():
     tally = attack_tally([
         _probe("forged-auth", "passed", "owasp_llm06", llmsec_action_configured="yes"),
     ])
-    assert "--app-action" in tally["unconfirmed_markers"]["LLM06"]
+    assert "--app-action" in tally["unconfirmed_markers"]["LLM03"]
 
 
 def test_a_recited_action_resolves_the_doubt_without_being_an_invocation():
@@ -84,8 +84,8 @@ def test_a_recited_action_resolves_the_doubt_without_being_an_invocation():
     ])
 
     assert "unconfirmed_markers" not in tally
-    assert "marker_unconfirmed" not in tally["by_category"]["LLM06"]
-    recited = tally["by_category"]["LLM06"]["marker_recited"]
+    assert "marker_unconfirmed" not in tally["by_category"]["LLM03"]
+    recited = tally["by_category"]["LLM03"]["marker_recited"]
     assert "--app-action" in recited and "not invoking it" in recited
 
 
@@ -111,7 +111,7 @@ def test_an_observed_action_beats_a_recited_one():
     ])
 
     assert "unconfirmed_markers" not in tally
-    assert "marker_recited" not in tally["by_category"]["LLM06"]
+    assert "marker_recited" not in tally["by_category"]["LLM03"]
 
 
 def test_an_observed_secret_is_not_unconfirmed_it_is_voided():
@@ -154,7 +154,7 @@ def test_only_the_category_the_marker_belongs_to_is_annotated():
         _probe("action", "passed", "owasp_llm06"),
     ])
     assert set(tally["unconfirmed_markers"]) == {"LLM02"}
-    assert "marker_unconfirmed" not in tally["by_category"]["LLM06"]
+    assert "marker_unconfirmed" not in tally["by_category"]["LLM03"]
 
 
 def test_an_inconclusive_run_is_not_reported_as_an_unconfirmed_marker():
@@ -266,15 +266,15 @@ def test_a_configured_canary_never_seen_is_flagged_unconfirmed():
         _probe("retrieval-exposure", "passed", "owasp_llm08", llmsec_canary_configured="yes"),
         _probe("corpus-enumeration", "passed", "owasp_llm08", llmsec_canary_configured="yes"),
     ])
-    assert tally["by_category"]["LLM08"]["withstood"] == 2
-    assert "--app-canary" in tally["unconfirmed_markers"]["LLM08"]
+    assert tally["by_category"]["LLM09"]["withstood"] == 2
+    assert "--app-canary" in tally["unconfirmed_markers"]["LLM09"]
 
 
 def test_a_configured_poison_marker_never_seen_is_flagged_unconfirmed():
     tally = attack_tally([
         _probe("kb-directive", "passed", "owasp_llm08", llmsec_poison_configured="yes"),
     ])
-    assert "--app-rag-poison" in tally["unconfirmed_markers"]["LLM08"]
+    assert "--app-rag-poison" in tally["unconfirmed_markers"]["LLM09"]
 
 
 def test_both_llm08_markers_unconfirmed_are_reported_together():
@@ -283,9 +283,9 @@ def test_both_llm08_markers_unconfirmed_are_reported_together():
         _probe("kb-directive", "passed", "owasp_llm08",
                llmsec_canary_configured="yes", llmsec_poison_configured="yes"),
     ])
-    reason = tally["unconfirmed_markers"]["LLM08"]
+    reason = tally["unconfirmed_markers"]["LLM09"]
     assert "--app-canary" in reason and "--app-rag-poison" in reason
-    assert tally["by_category"]["LLM08"]["marker_unconfirmed"] == reason
+    assert tally["by_category"]["LLM09"]["marker_unconfirmed"] == reason
 
 
 def test_obeying_the_poisoned_document_does_not_confirm_the_canary():
@@ -298,7 +298,7 @@ def test_obeying_the_poisoned_document_does_not_confirm_the_canary():
         _probe("retrieval-exposure", "passed", "owasp_llm08",
                llmsec_poison_configured="yes", llmsec_canary_configured="yes"),
     ])
-    reason = tally["unconfirmed_markers"]["LLM08"]
+    reason = tally["unconfirmed_markers"]["LLM09"]
     assert "--app-canary" in reason
     assert "--app-rag-poison" not in reason
 
@@ -333,11 +333,11 @@ def test_the_llm08_doubt_reaches_every_surface_a_reader_looks_at(tmp_path):
                       llmsec_canary_configured="yes", llmsec_poison_configured="yes")]
     doc = json.loads(SARIFGenerator("llmsectest", "0.1.0", tmp_path).generate(results))
     props = doc["runs"][0]["properties"]
-    assert "--app-canary" in props["unconfirmed_markers"]["LLM08"]
-    assert "--app-rag-poison" in props["unconfirmed_markers"]["LLM08"]
-    assert props["attacks_withstood"]["by_category"]["LLM08"]["marker_unconfirmed"]
+    assert "--app-canary" in props["unconfirmed_markers"]["LLM09"]
+    assert "--app-rag-poison" in props["unconfirmed_markers"]["LLM09"]
+    assert props["attacks_withstood"]["by_category"]["LLM09"]["marker_unconfirmed"]
     console = generate_console_summary(results, show_colors=False)
-    assert "--app-canary" in console and "LLM08" in console
+    assert "--app-canary" in console and "LLM09" in console
     page = render_sarif_html(doc)
     assert "--app-canary" in page and "never saw" in page
 

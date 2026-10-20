@@ -250,12 +250,14 @@ def test_an_undelivered_probe_is_not_a_pass_in_the_category_row():
         results.append(never)
 
     stats = calculate_statistics(results)
-    llm05 = stats["owasp_categories"]["LLM05"]
+    # 2026 numbering: Improper Output Handling is LLM10, not LLM05. The marker key
+    # (`owasp_llm05`) is unchanged, which is the whole point of keeping markers internal.
+    llm05 = stats["owasp_categories"]["LLM10"]
     assert llm05["total"] == 4, llm05
     assert llm05["undelivered"] == 2, llm05
 
     out = generate_console_summary(results)
-    row = next(line for line in out.splitlines() if "LLM05" in line and "Improper" in line)
+    row = next(line for line in out.splitlines() if "LLM10" in line and "Improper" in line)
     assert "2 never delivered" in row, row
     # The Pass column carries the two that were actually answered, not all four.
     plain = re.sub(r"\x1b\[[0-9;]*m", "", row)
@@ -264,6 +266,6 @@ def test_an_undelivered_probe_is_not_a_pass_in_the_category_row():
 
     md = MarkdownReportGenerator(TOOL, VERSION).generate(results)
     llm05_row = next(line for line in md.splitlines()
-                     if line.startswith("| LLM05 ") and "Improper" in line)
+                     if line.startswith("| LLM10 ") and "Improper" in line)
     assert "2 never delivered" in llm05_row, llm05_row
     assert "✅ Pass" not in llm05_row, llm05_row

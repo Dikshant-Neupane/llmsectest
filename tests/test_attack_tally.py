@@ -62,7 +62,9 @@ def test_counts_passes_as_withstood_and_failures_as_findings():
     assert tally["withstood"] == 2
     assert tally["findings"] == 1
     assert tally["inconclusive"] == 0
-    assert tally["by_category"]["LLM08"]["findings"] == 1
+    # 2026 numbering: the `owasp_llm08` marker publishes as LLM09 Vector and Embedding
+    # Weaknesses. The marker keys never move; the published id is what the edition changes.
+    assert tally["by_category"]["LLM09"]["findings"] == 1
     assert tally["by_category"]["LLM01"]["withstood"] == 1
 
 
@@ -76,7 +78,8 @@ def test_an_unanswered_attack_is_not_counted_as_withstood():
     assert tally["attempted"] == 2
     assert tally["withstood"] == 1
     assert tally["inconclusive"] == 1
-    assert tally["by_category"]["LLM10"]["withstood"] == 0
+    # 2026: `owasp_llm10` publishes as LLM06 Unbounded Consumption.
+    assert tally["by_category"]["LLM06"]["withstood"] == 0
 
 
 def test_coverage_assertions_and_scanners_never_inflate_the_count():
@@ -104,7 +107,9 @@ def test_by_category_is_ordered_and_carries_the_category_name():
         _probe("flood", "passed", "owasp_llm10"),
         _probe("injection", "passed", "owasp_llm01"),
     ])
-    assert list(tally["by_category"]) == ["LLM01", "LLM10"]
+    # Ordered by PUBLISHED id, so the 2026 renumbering changes the order itself: the flood
+    # probe's marker (`owasp_llm10`) publishes as LLM06 and now sorts before a 2025 LLM10.
+    assert list(tally["by_category"]) == ["LLM01", "LLM06"]
     assert tally["by_category"]["LLM01"]["name"]
 
 
@@ -118,7 +123,46 @@ def test_sarif_carries_the_tally_as_a_run_level_property(tmp_path):
     props = sarif["runs"][0]["properties"]["attacks_withstood"]
     assert props["attempted"] == 2
     assert props["withstood"] == 1
-    assert props["by_category"]["LLM08"]["findings"] == 1
+    assert props["by_category"]["LLM09"]["findings"] == 1
+
+
+def test_every_finding_names_the_edition_it_was_scored_under(tmp_path):
+    """A stored SARIF must be datable from the file.
+
+    `owasp-category: LLM03` is Supply Chain under 2025 and Excessive Agency under 2026, so a
+    number without an edition cannot be read years later. This project has 92 published
+    reports carrying 2025 numbers and migrated to 2026 on 2026-10-20; the edition property is
+    what keeps both readable instead of rewriting the old ones.
+    """
+    sarif = json.loads(
+        SARIFGenerator("llmsectest", "0.1.0", tmp_path).generate([
+            _probe("injection", "failed", "owasp_llm01"),
+        ])
+    )
+    props = sarif["runs"][0]["tool"]["driver"]["rules"][0]["properties"]
+    assert props["owasp-edition"] == "2026"
+    assert props["owasp-category"] == "LLM01"
+
+
+def test_a_renumbered_category_carries_its_2025_number_too(tmp_path):
+    """Eight of the ten categories changed number, and a reader may hold an older report.
+
+    Marker `owasp_llm08` published as LLM08 Vector and Embedding Weaknesses under 2025 and
+    publishes as LLM09 under 2026, so both numbers belong on the finding. LLM01 did not move,
+    and there the legacy key is absent rather than duplicating the live one.
+    """
+    sarif = json.loads(
+        SARIFGenerator("llmsectest", "0.1.0", tmp_path).generate([
+            _probe("poisoned_doc", "failed", "owasp_llm08"),
+            _probe("injection", "failed", "owasp_llm01"),
+        ])
+    )
+    by_id = {
+        r["properties"]["owasp-category"]: r["properties"]
+        for r in sarif["runs"][0]["tool"]["driver"]["rules"]
+    }
+    assert by_id["LLM09"]["owasp-category-2025"] == "LLM08"
+    assert "owasp-category-2025" not in by_id["LLM01"]
 
 
 def test_a_static_only_scan_omits_the_property_entirely(tmp_path):
@@ -142,7 +186,7 @@ def test_clean_report_html_states_what_was_withstood(tmp_path):
     page = render_sarif_html(doc, source_name="defended-app")
     assert "2/2 attacks withstood" in page
     assert "withstood 2 of 2 delivered attacks" in page
-    assert "LLM08" in page  # the per-category breakdown, not just a total
+    assert "LLM09" in page  # the per-category breakdown, not just a total
 
 
 def test_html_of_a_third_party_report_without_the_tally_still_renders():

@@ -2,7 +2,7 @@
 
 --8<-- "_release.md"
 
-**Pytest-native security testing for LLM _applications_, mapped to the [OWASP LLM Top 10 (2025)](https://genai.owasp.org/llm-top-10/).**
+**Pytest-native security testing for LLM _applications_, mapped to the [OWASP LLM Top 10 (2026)](https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/).**
 
 LLMSecTest tests **applications that use an LLM** (a system prompt, guardrails, RAG, and tools around a model) rather than bare models, for the security risks in the OWASP Top 10 for LLM Applications, and emits
 **SARIF / HTML / JSON / Markdown** reports that drop straight into CI/CD.
@@ -47,21 +47,29 @@ target, run `llmsectest --check` to see the live map.
 **[API reference](api.md)**
 
 !!! note "Status"
-    Pre-alpha (active grant development). All **10/10** OWASP LLM Top 10 (2025) categories ship today:
-    black-box probes for **LLM01/02/05/06/07/09/10**, white-box scanners for **LLM03 (supply chain)**
-    (`--repo`) and **LLM04 (data and model poisoning)** (`--model-scan`), and **LLM08 (vector &
+    Pre-alpha (active grant development). All **10/10** OWASP LLM Top 10 (2026) categories ship today:
+    black-box probes for **LLM01/02/03/06/07/08/10**, white-box scanners for **LLM04 (supply chain)**
+    (`--repo`) and **LLM05 (data and model poisoning)** (`--model-scan`), and **LLM09 (vector &
     embedding weaknesses)** both ways, black-box RAG probes plus an offline embedding-inversion
     exposure scan of a persisted store (`--vector-store`). What remains to do is depth rather than breadth. Coverage claims here always
     match what the tool does, see `llmsectest --check`.
 
-!!! warning "Which edition and why not the newer one"
-    A **2026** edition of the list came out on 3 August 2026. This tool implements **2025** and says so
-    on every surface. Read side by side, the two lists hold the same ten risks: nothing was added,
-    dropped, merged or split. Eight categories change number and LLM07 System Prompt Leakage becomes
-    LLM08 Hidden Context Exposure with a wider remit that now covers retrieved policy text and tool
-    schemas. Every report and baseline published here carries 2025 numbers, so a silent renumber would
-    change what already-published records mean, and OWASP's own per-category pages still carry 2025.
-    Both change before this does.
+!!! warning "The edition, and the one place our coverage is narrower than it"
+    This tool implements the **2026** edition, published 3 August 2026, as of 20 October 2026. Read
+    side by side the two lists hold the same ten risks: nothing was added, dropped, merged or split.
+    Eight categories changed number and LLM07 System Prompt Leakage became **LLM08 Hidden Context
+    Exposure**, with a wider remit covering retrieved policy text and tool schemas.
+
+    **Our LLM08 probes cover the system-prompt subset of that category.** Retrieved policy text and
+    exposed tool schemas are in the 2026 scope and are not yet probed, so a clean LLM08 row is a
+    clean result for the system-prompt part rather than for the whole category. Every report says so
+    on the row.
+
+    **Reports published before 20 October 2026 carry 2025 numbers** and have not been rewritten. A
+    renumber of a published record would change what that record means after the fact; the mapping
+    between the editions is in `docs/owasp-2026-migration-diff.md`. OWASP's own per-category archive
+    pages are also still 2025-numbered, which is why the 2026 edition is cited by its guide rather
+    than by ten deep links.
 
 ## Funding
 

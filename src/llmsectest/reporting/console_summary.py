@@ -8,7 +8,7 @@ from typing import Any
 
 from .constants import SEVERITY_ORDER
 from .models import TestResult
-from .owasp_metadata import get_owasp_category
+from .owasp_metadata import get_owasp_category, get_owasp_category_by_id
 from .statistics import (
     attack_tally,
     calculate_statistics,
@@ -314,7 +314,7 @@ def generate_console_summary(
         lines.append("    " + "-" * 65)
         for category_id in sorted(stats["owasp_categories"].keys()):
             cat_stats = stats["owasp_categories"][category_id]
-            category = get_owasp_category(f"owasp_{category_id.lower()}")
+            category = get_owasp_category_by_id(category_id)
             name = category.name if category else "Unknown"
             if not cat_stats.get("exercised"):
                 # The row stays so no category goes missing, and it carries words rather
