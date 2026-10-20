@@ -181,7 +181,6 @@ def check_coverage():
     """List the OWASP categories, which have probes, and what the rest need."""
     from .probes import SCANNER_CATEGORIES, covered_categories
     from .reporting.cvss import cvss_for_category, library_available
-
     from .reporting.owasp_metadata import (DEFAULT_OWASP_EDITION, get_owasp_category,
                                            resolve_edition)
 
