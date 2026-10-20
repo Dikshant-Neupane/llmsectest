@@ -8,7 +8,7 @@ from typing import Any
 
 from .constants import SEVERITY_ORDER
 from .models import TestResult
-from .owasp_metadata import get_owasp_category, get_owasp_category_by_id
+from .owasp_metadata import get_owasp_category_by_id
 from .statistics import (
     attack_tally,
     calculate_statistics,
