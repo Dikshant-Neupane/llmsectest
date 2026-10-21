@@ -43,7 +43,7 @@ earlier version, that is the part you want.
 
 | OWASP category | How it is tested | Mode |
 |---|---|---|
-| LLM01 prompt injection | marker-injection corpus + a **red-team jailbreak set** ([JailbreakBench](https://huggingface.co/datasets/JailbreakBench/JBB-Behaviors) / AdvBench, `--redteam-set`) scored by a refusal oracle | black-box |
+| LLM01 prompt injection | marker-injection corpus + a **red-team jailbreak set** ([JailbreakBench](https://huggingface.co/datasets/JailbreakBench/JBB-Behaviors) / AdvBench, `--redteam-set`) scored by a refusal oracle that also reads **what the refusal says**. A decline that recites the prompt it is protecting, or names the secret, is not a clean refusal | black-box |
 | LLM02 sensitive information disclosure | four disclosure mechanisms against a named secret the app holds | black-box |
 | LLM03 excessive agency *(LLM06 in 2025)* | four unverifiable authority claims, scored on a real invocation | black-box |
 | LLM04 supply chain *(LLM03 in 2025)* | reads your dependency manifests via `--repo` across three ecosystems (PyPI, npm, Go), flags unpinned deps, index bypasses and insecure package indexes, optionally checks exact pins against OSV.dev, emits a CycloneDX SBOM | white-box |

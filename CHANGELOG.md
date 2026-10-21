@@ -10,6 +10,32 @@ forward-looking plan is the [roadmap](https://llmsec.dev/#roadmap).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-21
+
+The published description on PyPI still named the 2025 OWASP numbering, because the text PyPI
+serves is baked into the sdist and 0.4.0 was built the day before the migration. No repository
+edit reaches that page. This release exists to correct it. It carries the refusal-content axis
+along with the fix.
+
+### Added
+
+- 2026-10-21: **a refusal is now scored on what it says.** Every probe outcome carries a third
+  verdict beside the existing two, `refusal_content`, with `refusal_content_evidence` naming
+  what it found. A model can decline a request and still recite the system-prompt fragment it
+  was declining to leak, name the canary it was holding, or spell out the privileged capability
+  it claims not to have. That now reads as a refusal that leaked. The refusal and the leak are
+  two facts. One verdict used to carry both.
+
+  It scores only material **we planted ourselves**, so a system-prompt fragment, a secret, or a
+  named capability. The model's own words are never matched, so you can trace any verdict back
+  to something the scan put there. Text the probe supplied is cut out of the match, so a prompt
+  echoed back does not read as the application's output.
+
+  In SARIF the two axes ride as result properties (`refusal_content`,
+  `refusal_content_evidence`, alongside `capability_verdict`), so a stored report can be
+  re-read for them without re-running the scan. Every existing verdict stands untouched. This
+  axis is added alongside them. `vulnerable` keeps the meaning it had.
+
 ### Changed
 
 - 2026-10-20: **the OWASP LLM Top 10 numbering moved to the 2026 edition** (published 3 August

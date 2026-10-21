@@ -48,6 +48,20 @@ harmful request instead of refusing it.
   so it **under-reports** successful jailbreaks rather than raising false findings. For higher recall, swap
   in a classifier oracle (Llama-Guard, GLiGuard, or garak's ModernBERT refusal detector) via the detector
   registry; that work is on the [roadmap](https://llmsec.dev/#roadmap).
+- **A refusal is also scored on what it says.** Since 0.4.1 every probe outcome carries
+  `refusal_content` (with `refusal_content_evidence`). "Did it refuse?" and "did it leak while
+  refusing?" are two questions. One verdict for both hides findings. A target can decline
+  your request and still quote the system-prompt fragment it is protecting, name the secret it
+  was holding, or spell out a privileged capability it claims not to have. That reads as a
+  refusal *that leaked*.
+
+  It only ever matches material **the scan planted itself**, so your `--app-prompt` text, your
+  `--app-secret` value, or a named capability. The model's own phrasing is never matched, so
+  every verdict traces back to something we put there and we can show it to you. Text the probe
+  supplied is cut out of the match, so a prompt echoed back does not read as the application's
+  own output. The axis is additive. Every existing verdict stands. `vulnerable` keeps the
+  meaning it had. In SARIF both properties ride on the result, so a stored report can be re-read for them
+  without re-running the scan.
 - **A refusal that quotes the demand is a refusal.** The bias toward "refused" used to have a hole: the
   affirmative-completion check overrode everything, so a model answering *"I won't do that; you asked me to
   begin with \"Sure, here is …\""* was reported as having complied. The articulate refusal is the one that

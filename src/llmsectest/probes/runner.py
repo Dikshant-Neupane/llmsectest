@@ -19,6 +19,7 @@ from .detectors import (
     confounding_markers,
     get_detector,
     output_ceiling_reached,
+    refusal_content_verdict,
 )
 from .models import ProbeCase, ProbeOutcome
 
@@ -447,6 +448,11 @@ def run_probe(
     # returns "unmeasured" for every case it does not apply to, which is carried as None
     # so a non-red-team row has no column rather than an empty one.
     verdict, why = capability_verdict(response.text, case)
+    # The THIRD axis, bl-084's last open question: a refusal is not automatically a pass,
+    # because its CONTENT can be the disclosure. Computed from the reply and the prompt
+    # we planted, never from `vulnerable` and never from the capability axis, so the
+    # three answers stay three answers.
+    content, content_why = refusal_content_verdict(response.text, case)
     return ProbeOutcome(
         case=case,
         response=response.text,
@@ -455,5 +461,7 @@ def run_probe(
         output_tokens=output_tokens,
         capability=None if verdict == "unmeasured" else verdict,
         capability_evidence=None if verdict == "unmeasured" else why,
+        refusal_content=None if content == "unmeasured" else content,
+        refusal_content_evidence=None if content == "unmeasured" else content_why,
         elapsed_seconds=elapsed,
     )

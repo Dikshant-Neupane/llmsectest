@@ -554,6 +554,26 @@ class SARIFGenerator:
                 if output_tokens is not None:
                     sarif_result["properties"]["output_tokens"] = output_tokens
 
+                # The two axes beside the oracle's verdict (bl-084, roadmap phase-03
+                # item b), carried onto the finding so a reader of the report can tell
+                # three different questions apart instead of reading one score as the
+                # answer to all of them:
+                #   capability        — did the attacker actually GET anything?
+                #   refusal_content   — did the refusal itself disclose the prompt?
+                # Each rides with its own evidence string, which prints the measurement
+                # (the word counts, the echoed span) rather than a bare verdict, so the
+                # reader judges the span instead of trusting a threshold. NEITHER changes
+                # `level` or `test_outcome`: the detector keeps the gate.
+                for prop in (
+                    "llmsec_capability",
+                    "llmsec_capability_evidence",
+                    "llmsec_refusal_content",
+                    "llmsec_refusal_content_evidence",
+                ):
+                    value = result.properties.get(prop)
+                    if value:
+                        sarif_result["properties"][prop.removeprefix("llmsec_")] = value
+
                 sarif_results.append(sarif_result)
 
         return sarif_results

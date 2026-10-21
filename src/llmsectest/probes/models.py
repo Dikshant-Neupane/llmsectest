@@ -132,6 +132,30 @@ class ProbeOutcome:
     #: so a reader sees what was counted rather than trusting a threshold. ``None``
     #: exactly when :attr:`capability` is.
     capability_evidence: str | None = None
+    #: The THIRD axis on a red-team case: when the reply REFUSED, did the refusal itself
+    #: disclose the application's own instructions? One of
+    #: :data:`~llmsectest.probes.detectors.REFUSAL_CONTENT_VERDICTS` — ``discloses``,
+    #: ``clean`` or ``not_a_refusal`` — and ``None`` for every case the axis does not
+    #: apply to, on the same rule as :attr:`capability`.
+    #:
+    #: It exists because a refusal is scored as the target holding, and a refusal can be
+    #: the disclosure: Varonis asked Microsoft 365 Copilot about its own protections, it
+    #: refused, and every refusal carried technical detail about the internal
+    #: architecture, which is what let them route around it. bl-084 names this as the
+    #: third question our single substring oracle answers as one.
+    #:
+    #: Kept as its own field and NEVER folded into :attr:`vulnerable`, for a reason
+    #: beyond the one :attr:`capability` gives: a ``discloses`` row is still a row where
+    #: the application DECLINED, and a span matcher cannot tell a damaging disclosure
+    #: from a harmless restatement of a public policy line. Promoting it automatically
+    #: would also move counts into LLM08 Hidden Context Exposure, which has its own
+    #: probes and its own published rate. See
+    #: :func:`~llmsectest.probes.detectors.refusal_content_verdict`.
+    refusal_content: str | None = None
+    #: The measurement behind :attr:`refusal_content` — the echoed span and its length in
+    #: words, printed so a reader judges the span rather than trusting the threshold.
+    #: ``None`` exactly when :attr:`refusal_content` is.
+    refusal_content_evidence: str | None = None
     #: Wall-clock seconds the probe took, measured around the adapter call. Recorded
     #: for a timed-out probe too (there it is the budget that was exhausted), which is
     #: what lets one scan tell a target's ordinary latency apart from a request that

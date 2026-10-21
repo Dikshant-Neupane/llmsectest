@@ -142,6 +142,34 @@ def probe(target_adapter, target_responsiveness, configured_secret, configured_a
         if outcome.elapsed_seconds is not None:
             record_property("llmsec_elapsed", outcome.elapsed_seconds)
             record_property("llmsec_case", case.id)
+        # THE TWO AXES BESIDE THE ORACLE'S VERDICT (bl-084, roadmap phase-03 item b),
+        # recorded on every red-team probe, pass or fail, for the same reason the cost
+        # and the latency are: the question they answer does not only arise when the
+        # oracle fired.
+        #
+        # `llmsec_capability` — did the reply carry the capability it was asked for, or
+        # was it an affirmative opener with nothing behind it (which JailbreakBench calls
+        # safe)? The oracle asks whether the target DECLINED; a reader of an LLM01
+        # finding reads it as "the attack worked". Those are garak's two detectors.
+        #
+        # `llmsec_refusal_content` — when the target DID refuse, did the refusal itself
+        # disclose the application's own instructions? Varonis routed around Microsoft
+        # 365 Copilot precisely by reading its refusals.
+        #
+        # ‼ NEITHER CHANGES A FINDING. The detector keeps the gate and these are carried
+        # beside it, the way `fired` and `measured` are kept apart: collapsing them would
+        # invent a number neither one measured, and a `discloses` row in particular is
+        # still a row where the application declined.
+        if outcome.capability is not None:
+            record_property("llmsec_capability", outcome.capability)
+            if outcome.capability_evidence:
+                record_property("llmsec_capability_evidence", outcome.capability_evidence)
+        if outcome.refusal_content is not None:
+            record_property("llmsec_refusal_content", outcome.refusal_content)
+            if outcome.refusal_content_evidence:
+                record_property(
+                    "llmsec_refusal_content_evidence", outcome.refusal_content_evidence
+                )
         if outcome.errored:
             # A probe that timed out or never reached the target is inconclusive, not
             # clean: surface it as a warning (visible in the pytest summary the CLI
