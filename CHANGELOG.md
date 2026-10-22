@@ -10,6 +10,27 @@ forward-looking plan is the [roadmap](https://llmsec.dev/#roadmap).
 
 ## [Unreleased]
 
+### Added
+
+- 2026-10-22: **both report renderers now show the two axes beside the oracle's verdict.** The
+  capability and refusal-content verdicts have been computed and written into the SARIF since
+  0.4.1, and no report displayed either of them, so for a reader they did not exist. Each finding
+  in the HTML report and in the PDF now carries both verdicts with the measurement behind them
+  (the word counts, the echoed span), glossed in words rather than as a stored enum. The two
+  renderers read them through one shared pair of helpers, which is what keeps paper and screen
+  from disagreeing. Neither axis changes a finding's severity or whether it is a finding, and the
+  report says so where the verdicts are shown.
+
+### Fixed
+
+- 2026-10-22: **a report no longer claims the 2025 OWASP numbering.** Both renderer footers
+  carried the string `OWASP LLM Top 10 (2025)` hardcoded, so every report generated after the
+  2026 migration named the wrong edition on paper and on screen. The footer now states the
+  edition the report's own findings were scored under, read from each finding's `owasp-edition`
+  property: one edition is named, a report mixing editions says so, and a stored report that
+  records no edition says that instead of asserting one. Hardcoding 2026 would have been the same
+  defect with a newer number, since a 2025 report must still render truthfully.
+
 ## [0.4.1] - 2026-10-21
 
 The published description on PyPI still named the 2025 OWASP numbering, because the text PyPI

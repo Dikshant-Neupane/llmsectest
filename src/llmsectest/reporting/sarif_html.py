@@ -174,6 +174,82 @@ def _fixes_of(result: dict) -> list[str]:
     return out
 
 
+#: The two axes that ride beside the oracle's verdict (bl-084, roadmap phase-03 item b),
+#: in the order a reader needs them, each verdict given in words a reader can act on
+#: rather than the stored enum. The gloss is the whole point of the surface: `absent`
+#: and `opener_only` are not self-explanatory, and a reader who has to look up a verdict
+#: reads past it.
+_AXES: tuple[tuple[str, str, dict[str, tuple[str, str]]], ...] = (
+    ("capability", "Capability", {
+        "delivered": ("delivered", "the attack got what it asked for"),
+        "opener_only": ("opener only",
+                        "the reply began to comply and carried nothing usable"),
+        "absent": ("absent", "nothing the attack asked for came back"),
+    }),
+    ("refusal_content", "Refusal", {
+        "discloses": ("discloses",
+                      "the refusal itself echoed the application's own instructions"),
+        "clean": ("clean", "the refusal gave nothing away"),
+        "not_a_refusal": ("not a refusal", "the reply did not decline"),
+    }),
+)
+
+
+def _axes_of(result: dict) -> list[tuple[str, str, str, str, str]]:
+    """The measured axes on one finding: ``(key, label, verdict, gloss, evidence)``.
+
+    Empty for a finding the axes do not apply to (anything not scored by the two refusal
+    oracles) and for every report rendered before they existed, so the 92 reports already
+    published render exactly as they did. An unknown verdict is shown rather than dropped:
+    a vocabulary that grows in :mod:`llmsectest.probes.detectors` must not silently lose
+    its new value here, which is the defect this whole surface exists to end — both axes
+    were built, tested and merged while **no report displayed either of them**.
+    """
+    props = _props(result)
+    out: list[tuple[str, str, str, str, str]] = []
+    for key, label, vocab in _AXES:
+        verdict = props.get(key)
+        if not isinstance(verdict, str) or not verdict.strip():
+            continue
+        shown, gloss = vocab.get(verdict, (verdict.replace("_", " "), ""))
+        evidence = props.get(f"{key}_evidence")
+        out.append((key, label, shown, gloss,
+                    evidence if isinstance(evidence, str) else ""))
+    return out
+
+
+def _editions_of(findings: list[tuple[dict, dict]]) -> list[str]:
+    """Every OWASP edition the findings in this report were scored under, sorted.
+
+    Read off the findings themselves (``owasp-edition``, written per finding by
+    :mod:`llmsectest.reporting.sarif_generator`) rather than from a constant, because the
+    renderer's job is to report what the SARIF in front of it says. A hardcoded year in a
+    footer is how this report came to assert the 2025 edition for six weeks after the tool
+    moved to 2026 — and hardcoding 2026 instead would be the same defect with a newer
+    number, since both editions are supported and a stored 2025 report must still render
+    truthfully.
+    """
+    seen: set[str] = set()
+    for result, rule in findings:
+        edition = _props(result).get("owasp-edition") or _props(rule).get("owasp-edition")
+        if isinstance(edition, str) and edition.strip():
+            seen.add(edition.strip())
+    return sorted(seen)
+
+
+def _edition_sentence(findings: list[tuple[dict, dict]]) -> str:
+    """The footer's claim about which OWASP edition this report's numbers are on."""
+    editions = _editions_of(findings)
+    if not editions:
+        return ("findings map to the OWASP Top 10 for LLM Applications; this report does "
+                "not record which edition they were scored under.")
+    if len(editions) == 1:
+        return ("findings map to the OWASP Top 10 for LLM Applications, "
+                f"{editions[0]} edition.")
+    return ("findings map to the OWASP Top 10 for LLM Applications and this report mixes "
+            "editions (" + ", ".join(editions) + "); each finding names its own.")
+
+
 def _rule_index(run: dict) -> dict[str, dict]:
     """Every rule the run's tool declares, wherever the producer put it.
 
@@ -268,6 +344,31 @@ def _finding_card(result: dict, rule: dict) -> str:
         parts.append('<div class="f-sub">' + " ".join(sub) + "</div>")
     if msg:
         parts.append(f'<pre class="f-msg">{_esc(msg)}</pre>')
+    # The two axes beside the oracle's verdict, between the message and the
+    # remediation: a reader has just seen WHAT was sent and needs "did it actually get
+    # anything" and "did the refusal leak" before being told how to fix it. Each row
+    # carries its own measurement, so the span is judged rather than the threshold
+    # trusted. A finding without the axes renders exactly as before.
+    axes = _axes_of(result)
+    if axes:
+        rows = []
+        for key, label, verdict, gloss, evidence in axes:
+            row = [f'<div class="ax ax-{_esc(key)}-{_esc(verdict.replace(" ", "_"))}">',
+                   f'<span class="ax-k">{_esc(label)}</span>',
+                   f'<span class="ax-v">{_esc(verdict)}</span>']
+            if gloss:
+                row.append(f'<span class="ax-g">{_esc(gloss)}</span>')
+            row.append("</div>")
+            if evidence:
+                row.append(f'<pre class="ax-e">{_esc(evidence)}</pre>')
+            rows.append("".join(row))
+        parts.append(
+            '<div class="f-axes"><div class="ax-h">Beside the verdict</div>'
+            + "".join(rows)
+            + '<p class="ax-note">Neither axis changes this finding\'s severity or '
+              "whether it is a finding: a disclosing refusal is still a reply that "
+              "declined, and the oracle keeps the gate.</p></div>"
+        )
     if fixes:
         items = "".join(f"<li>{_esc(f)}</li>" for f in fixes)
         parts.append(
@@ -409,6 +510,22 @@ h2.cat .cnt { color:var(--muted); font-weight:500; font-size:14px; }
 .f-msg { margin:11px 0 0; background:#0f172a; color:#dbe4f0; padding:12px 14px; border-radius:8px;
   font-size:12.5px; line-height:1.45; max-height:260px; overflow:auto; white-space:pre-wrap;
   word-break:break-word; }
+.f-axes { margin-top:12px; border-top:1px solid var(--line); padding-top:10px; }
+.ax-h { color:var(--muted); font-size:11px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.5px; margin-bottom:7px; }
+.ax { display:flex; gap:9px; align-items:baseline; flex-wrap:wrap; margin:4px 0; }
+.ax-k { color:var(--muted); font-size:12.5px; min-width:74px; }
+.ax-v { font-weight:700; font-size:13px; background:#eef1f5; color:#33414f;
+  padding:2px 8px; border-radius:5px; }
+.ax-g { color:#33414f; font-size:12.5px; }
+.ax-capability-delivered .ax-v { background:#fdebee; color:#8d0f2e; }
+.ax-refusal_content-discloses .ax-v { background:#fdebee; color:#8d0f2e; }
+.ax-capability-absent .ax-v, .ax-refusal_content-clean .ax-v { background:#e9f6ee;
+  color:#1f7a52; }
+.ax-e { margin:3px 0 8px 83px; background:#fafbfc; border:1px solid var(--line);
+  border-radius:6px; padding:7px 9px; font-size:12px; line-height:1.45; color:#33414f;
+  white-space:pre-wrap; word-break:break-word; }
+.ax-note { margin:8px 0 0; color:var(--muted); font-size:12px; line-height:1.45; }
 .f-fixes { margin-top:11px; }
 .f-fixes summary { cursor:pointer; color:#1f7a52; font-weight:600; font-size:13px; }
 .f-fixes ol { margin:9px 0 2px; padding-left:22px; color:#33414f; font-size:13.5px; }
@@ -742,7 +859,7 @@ def render_sarif_html(doc: dict, *, source_name: str | None = None,
         f'<div class="meta">{_esc(" · ".join(meta_bits))}</div></header>'
         f'<main>{"".join(body)}</main>'
         '<footer>Generated by LLMSecTest from a SARIF v2.1.0 report · '
-        "findings map to the OWASP LLM Top 10 (2025).</footer>"
+        f"{_esc(_edition_sentence(findings))}</footer>"
         "</body></html>"
     )
 
