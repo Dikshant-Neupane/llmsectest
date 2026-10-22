@@ -18,8 +18,8 @@ forward-looking plan is the [roadmap](https://llmsec.dev/#roadmap).
   in the HTML report and in the PDF now carries both verdicts with the measurement behind them
   (the word counts, the echoed span), glossed in words rather than as a stored enum. The two
   renderers read them through one shared pair of helpers, which is what keeps paper and screen
-  from disagreeing. Neither axis changes a finding's severity or whether it is a finding, and the
-  report says so where the verdicts are shown.
+  from disagreeing. The axes do not change a finding's severity. They do not change whether it is
+  a finding. The report says so where the verdicts are shown.
 
 ### Fixed
 
