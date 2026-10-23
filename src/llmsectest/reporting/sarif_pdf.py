@@ -60,12 +60,16 @@ def render_sarif_pdf(doc: dict, *, source_name: str | None = None,
     tool = f"{driver.get('name', 'unknown tool')} {driver.get('version', '')}".strip()
 
     findings: list[tuple[dict, dict]] = []
+    # A `kind: pass` row is a probe the target withstood, kept in the SARIF so its reply
+    # can be audited (issue #21). SARIF's own vocabulary says it is not a failure, and
+    # counting it here would print every refusal as a finding in the PDF.
     for run in runs:
         run = _as_dict(run)
         rules = _rule_index(run)
         for result in _as_list(run.get("results")):
-            if isinstance(result, dict):
-                findings.append((result, rules.get(result.get("ruleId"), {})))
+            if not isinstance(result, dict) or result.get("kind") == "pass":
+                continue
+            findings.append((result, rules.get(result.get("ruleId"), {})))
 
     generated = generated or datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     props = _props(first_run)

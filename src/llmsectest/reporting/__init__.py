@@ -67,5 +67,9 @@ def validate_sarif(path: str) -> bool:
         return False
 
     rules = run["tool"]["driver"].get("rules", [])
-    print(f"SARIF valid: {len(run['results'])} findings, {len(rules)} rules")
+    # `kind: pass` rows are withstood probes carrying their reply (issue #21), not findings.
+    findings = sum(1 for r in run["results"] if r.get("kind") != "pass")
+    withstood = len(run["results"]) - findings
+    print(f"SARIF valid: {findings} findings, {withstood} withstood transcripts, "
+          f"{len(rules)} rules")
     return True

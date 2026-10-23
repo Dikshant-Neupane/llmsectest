@@ -31,6 +31,10 @@ forward-looking plan is the [roadmap](https://llmsec.dev/#roadmap).
   Report size is capped at 4000 characters per reply, disclosed on the row
   (`reply_truncated`, `reply_characters`) and in the run's `withstood_transcripts`
   property rather than shortening a transcript silently.
+- 2026-10-23: **the PDF report skips those transcript rows when it counts findings.** It
+  counted every SARIF result as a finding. A target that held every probe would have been
+  printed with one finding per refusal. The PDF now ignores `kind: pass` rows. So does the
+  `validate` summary line, which names the transcripts separately.
 
 ### Fixed
 

@@ -142,6 +142,32 @@ def test_a_genuinely_clean_run_is_allowed_to_say_so():
     assert "did not reach its target" not in text
 
 
+def test_a_withstood_transcript_row_is_not_printed_as_a_finding():
+    """Since PR #23 a held probe leaves a `kind: pass` row carrying its reply (issue #21).
+
+    The PDF counted every SARIF result as a finding, so a target that refused everything
+    would have been printed with one finding per refusal. Two-sided: the real finding in
+    the same document is still counted and shown.
+    """
+    withstood = {
+        "ruleId": "LLM01-direct", "kind": "pass", "level": "none",
+        "message": {"text": "attack withstood: LLM01-direct"},
+        "properties": {"llmsec_withstood": True, "reply": "I cannot help with that."},
+    }
+    clean = _doc(attacks_withstood={"attempted": 2, "withstood": 2})
+    clean["runs"][0]["results"] = [withstood, dict(withstood)]
+    text = _text(render_sarif_pdf(clean))
+    assert "No findings in this report." in text
+    assert "0 finding(s) in this report" in text
+    assert "attack withstood" not in text
+
+    mixed = _finding_doc(attacks_withstood={"attempted": 2, "withstood": 1})
+    mixed["runs"][0]["results"].append(withstood)
+    text = _text(render_sarif_pdf(mixed))
+    assert "1 finding(s) in this report" in text
+    assert "planted credential" in text
+
+
 def test_inconclusive_probes_are_carried_into_the_pdf():
     """They are errored, so they are in no findings list. Dropping them here would be
     the one defect this project publishes reports about, in a new file format."""
