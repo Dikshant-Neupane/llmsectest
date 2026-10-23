@@ -87,7 +87,9 @@ you.
 
 - **Every scan reports what it delivered and what the target held off**, per category, as an
   `attacks_withstood` property. Without it, a well-defended app and a scan that attacked nothing
-  produce the same empty report.
+  produce the same empty report. Each held probe also leaves its own SARIF row with the reply it
+  gave (`kind: pass`, `level: none`), so you can read what your app said when it refused. Those
+  rows never count as findings.
 - **A target we could not reach is never reported as a safe one.** Unreachable, non-JSON, dead
   partway through, out of time: those probes are recorded inconclusive by name and technique, and a
   run holding one withholds its verdict as `INCOMPLETE` rather than claiming `PASSED`.

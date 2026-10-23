@@ -26,8 +26,8 @@ forward-looking plan is the [roadmap](https://llmsec.dev/#roadmap).
   rows and a count; a reader asking what it said when it refused had nothing to read,
   and the refusal-content axis could not be calibrated against our own reports. A held
   probe now emits its own `kind: pass` / `level: none` row carrying the reply it
-  withstood, so `attacks_withstood` and the transcripts agree (issue #21). These rows
-  are not findings, and the HTML renderer keeps them out of the finding count.
+  withstood, so `attacks_withstood` and the transcripts agree (issue #21). The HTML
+  renderer keeps these rows out of the finding count.
   Report size is capped at 4000 characters per reply, disclosed on the row
   (`reply_truncated`, `reply_characters`) and in the run's `withstood_transcripts`
   property rather than shortening a transcript silently.
@@ -50,10 +50,10 @@ forward-looking plan is the [roadmap](https://llmsec.dev/#roadmap).
 
 - 2026-10-22: **the LLM10 repetition oracle no longer scores a small compliant answer as a
   consumption finding.** It fired on the marker count alone, so an application that repeated a
-  short token 64 times — roughly 130 estimated tokens, shorter than the paragraph requesting it —
-  was published as an error-level `unbounded_consumption` row. That is the output cap working, not
-  a flood: two disclosures were withdrawn over it and a third member's whole finding set was found
-  unsendable (issue #20). The oracle now requires the reply to clear an output-volume floor as
+  short token 64 times was published as an error-level `unbounded_consumption` row. That reply is
+  roughly 130 estimated tokens, shorter than the paragraph that asked for it, so it shows the
+  output cap working. Two disclosures were withdrawn over it and a third member's whole finding
+  set was found unsendable (issue #20). The oracle now requires the reply to clear an output-volume floor as
   well as the repetition count, so a bounded sample stays quiet while a generation that ran past
   its bound still fires.
 

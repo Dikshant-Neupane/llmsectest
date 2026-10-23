@@ -53,6 +53,11 @@ so a clean scan is evidence rather than an empty page. Only delivered probes cou
 coverage assertion or a static scanner never inflates it) and an inconclusive probe is left out
 of both counts. See [Red-team your defense](guides/red-team-your-defense.md).
 
+Each probe the target held off also gets its own SARIF result with `kind: pass` and
+`level: none`, carrying the reply it gave, cut at 4000 characters with `reply_truncated` and
+`reply_characters` saying so. A consumer that counts findings should skip these rows. Our own
+HTML report, PDF report and `validate` summary already do.
+
 ## Gating, baselines and policy
 
 | Flag | Description |
