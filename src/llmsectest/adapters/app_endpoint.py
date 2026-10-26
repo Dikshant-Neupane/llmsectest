@@ -215,6 +215,7 @@ class AppEndpointAdapter(LLMAdapter):
         self.timeout = timeout
         self.session_field = session_field
         self.session_init = None if session_init is None else dict(session_init)
+        self._session_value_cache: str | None = None
 
     def _body(self, sent: str) -> dict:
         """The request body for one probe: ``extra_body``, with the attacker turn placed in it.
@@ -239,7 +240,9 @@ class AppEndpointAdapter(LLMAdapter):
         sent = _last_user(request)
         body = self._body(sent)
         if self.session_field:
-            _place(body, self.session_field, self._session_value())
+            if self._session_value_cache is None:
+                self._session_value_cache = self._session_value()
+            _place(body, self.session_field, self._session_value_cache)
         req = urllib.request.Request(
             self.endpoint,
             data=json.dumps(body).encode(),
@@ -329,8 +332,25 @@ class AppEndpointAdapter(LLMAdapter):
                 f"itself if it truly echoes."
             )
 
+    def begin_probe(self) -> None:
+        """Forget the cached session value, so the next probe mints its own.
+
+        Called by the probe runner before every probe. Without this reset the
+        cache would hand every probe of a scan one shared session — the defect
+        fixed 2026-09-05, where each attack saw the ones before it. Direct
+        ``complete`` callers that never signal a boundary share one value until
+        they do; that is the documented contract, not a second default.
+        """
+        self._session_value_cache = None
+
     def _session_value(self) -> str:
         """A session value for **this probe**, minted here or issued by the application.
+
+        Minted once per probe: :meth:`complete` caches the value until
+        :meth:`begin_probe`, so a probe that sends more than one request reuses
+        one value for all of them — and the next probe gets a fresh one. A
+        minting failure raises before anything is cached, so the next request
+        retries rather than reusing a failure.
 
         **The defect this exists for (2026-09-05, measured on khoj v1.42.10).** The adapter
         sends one POST per probe with one fixed body, so an application that binds a

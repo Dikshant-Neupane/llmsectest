@@ -142,6 +142,11 @@ endpoint; `method` (default `POST`), `headers` and `body` are optional. An unkno
 refused, so a misspelled `response_path` cannot quietly leave the scan auto-detecting some other
 field.
 
+A probe that sends more than one request reuses the same value for all of them, in both shapes
+above; the next probe gets a fresh one. The boundary is the probe, not the request: without it, a
+two-request probe would land its second request in a conversation that does not hold what the
+first one established.
+
 **A session step that fails is inconclusive.** It never scores as a finding. It never scores as
 an LLM10 timeout either. An application that never answered a setup request has said nothing about
 how it bounds the work of a probe it never received.

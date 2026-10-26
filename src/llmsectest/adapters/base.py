@@ -384,6 +384,20 @@ class LLMAdapter(abc.ABC):
     def complete(self, request: CompletionRequest) -> CompletionResponse:
         """Run one chat completion and return the assistant text."""
 
+    def begin_probe(self) -> None:
+        """Mark the start of a new probe. Called by the probe runner before every probe.
+
+        Adapters with per-probe state override this to reset it; the default is a
+        no-op. Without a boundary like this, an adapter cannot tell "two requests
+        of one probe" from "two probes": it would either mint per request (two
+        sessions for one probe) or hold one value for the whole scan (every probe
+        sharing a session, which is a measurement of the scan, not the target).
+
+        The runner calls this only when the adapter provides it, so duck-typed
+        adapters that implement only ``complete`` keep working unchanged.
+        """
+        return None
+
     def preflight(self) -> PreflightResult | None:
         """Best-effort health check before a scan.
 

@@ -122,12 +122,61 @@ def test_an_unset_session_leaves_the_shape_empty():
 def test_a_client_minted_id_is_fresh_for_every_probe(app):
     a = AppEndpointAdapter(endpoint=f"{app.base}/chat", session_field="conversation_id")
     a.complete(_ASK)
+    a.begin_probe()
     a.complete(_ASK)
     ids = [body["conversation_id"] for _, body in app.seen]
     assert len(ids) == 2
     assert ids[0] != ids[1], "two probes sharing an id is the defect this fixes"
     assert all(ids)
     assert app.issued == 0, "the client-minted shape costs no extra request"
+
+
+def test_two_requests_in_one_probe_share_one_client_minted_id(app):
+    """A probe that sends two requests must not get two sessions.
+
+    The boundary is begin_probe, not complete: two completes with no boundary
+    between them are two requests of one probe, so they carry one value, and
+    the next probe mints a fresh one.
+    """
+    a = AppEndpointAdapter(endpoint=f"{app.base}/chat", session_field="conversation_id")
+    a.complete(_ASK)
+    a.complete(_ASK)
+    ids = [body["conversation_id"] for _, body in app.seen]
+    assert len(ids) == 2
+    assert ids[0] == ids[1], "two requests of one probe must share one session"
+    a.begin_probe()
+    a.complete(_ASK)
+    assert app.seen[2][1]["conversation_id"] != ids[0]
+    assert app.issued == 0, "the client-minted shape costs no extra request"
+
+
+def test_run_probe_resets_the_session_between_probes(app):
+    """run_probe is the probe boundary, so two probes through it get different ids.
+
+    This guards the other half of the fix: with the cache in place but no reset
+    in run_probe, both probes would carry one id — the per-scan session the
+    2026-09-05 fix eliminated.
+    """
+    from llmsectest.probes.models import ProbeCase
+    from llmsectest.probes.runner import run_probe
+
+    a = AppEndpointAdapter(endpoint=f"{app.base}/chat", session_field="conversation_id")
+    case = ProbeCase(
+        id="APP-session-reset",
+        owasp="owasp_llm01",
+        title="session reset across probes",
+        severity="high",
+        technique="direct instruction override",
+        user_prompt="hello",
+        system_prompt="you are a helpful assistant",
+        detector="injection_marker",
+        forbidden=("CANARY",),
+    )
+    run_probe(a, case)
+    run_probe(a, case)
+    ids = [body["conversation_id"] for _, body in app.seen]
+    assert len(ids) == 2
+    assert ids[0] != ids[1], "run_probe must reset the session between probes"
 
 
 def test_a_dotted_session_field_reaches_a_nested_envelope(app):
@@ -167,11 +216,31 @@ def test_the_application_issues_an_id_and_the_probe_carries_it(app):
         session_init={"url": "/sessions", "response_path": "conversation_id"},
     )
     a.complete(_ASK)
+    a.begin_probe()
     a.complete(_ASK)
     paths = [p for p, _ in app.seen]
     assert paths == ["/sessions", "/chat", "/sessions", "/chat"]
     chats = [body for p, body in app.seen if p == "/chat"]
     assert [c["conversation_id"] for c in chats] == ["conv-1", "conv-2"]
+
+
+def test_two_requests_in_one_probe_share_one_issued_id(app):
+    """The server-issued shape pays one setup request per probe, not per request."""
+    a = AppEndpointAdapter(
+        endpoint=f"{app.base}/chat",
+        session_field="conversation_id",
+        session_init={"url": "/sessions", "response_path": "conversation_id"},
+    )
+    a.complete(_ASK)
+    a.complete(_ASK)
+    assert [p for p, _ in app.seen] == ["/sessions", "/chat", "/chat"]
+    chats = [body for p, body in app.seen if p == "/chat"]
+    assert [c["conversation_id"] for c in chats] == ["conv-1", "conv-1"]
+    assert app.issued == 1
+    a.begin_probe()
+    a.complete(_ASK)
+    assert app.issued == 2
+    assert app.seen[-1][1]["conversation_id"] == "conv-2"
 
 
 def test_a_relative_init_url_resolves_against_the_endpoint(app):

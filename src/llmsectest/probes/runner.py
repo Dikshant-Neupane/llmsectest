@@ -416,6 +416,15 @@ def run_probe(
         ],
         temperature=0.0,
     )
+    # The probe boundary for adapters that hold per-probe state: the app adapter's
+    # session value is minted once per probe and reused for every request that
+    # probe makes, so it must be reset here, not per request and not per scan.
+    # Guarded, not assumed: run_probe also accepts duck-typed adapters that
+    # implement only complete (the stress and generation tests use such doubles),
+    # and those have no per-probe state to reset.
+    begin_probe = getattr(adapter, "begin_probe", None)
+    if begin_probe is not None:
+        begin_probe()
     started = time.monotonic()
     try:
         response = adapter.complete(request)
