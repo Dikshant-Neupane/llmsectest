@@ -12,6 +12,14 @@ forward-looking plan is the [roadmap](https://llmsec.dev/#roadmap).
 
 ### Added
 
+- 2026-10-26: **SARIF results now carry their OWASP category as a taxonomy reference.**
+  The run declares an OWASP LLM Top 10 taxonomy (all ten categories as `taxa`, in the
+  report's 2026 edition numbering, under one stable guid), and each finding and withstood
+  row references the taxon it belongs to — so consumers that understand SARIF can group
+  and filter by category without knowing this tool's property names. The existing
+  `properties.owasp_category` / `owasp_name` / `cwe_ids` keys stay exactly as they were:
+  removing them would break readers that already parse them. (Closes #27.)
+
 - 2026-10-26: **every SARIF result now carries a stable identity.** Each finding gets a
   `partialFingerprints` entry. So does each withstood `kind: pass` row. The run gets an
   `automationDetails.id`. GitHub's code-scanning ingest marks that field Required and uses it to
