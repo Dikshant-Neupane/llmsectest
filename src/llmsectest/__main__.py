@@ -106,6 +106,15 @@ by this command just the same::
     --save-baseline <path>     write this run as the comparison baseline
     --update-baseline          overwrite the existing baseline with this run
     --compare-baseline <path>  fail on a regression against that baseline
+
+What this tool will not do:
+
+    - Send load nobody asked for: `--app-stress` below 2 is rejected, never rounded up, because two simultaneous requests against somebody else's application would be traffic nobody authorised.
+    - Silently drop app inputs: `--app-prompt`, `--app-secret`, `--app-action`, `--app-canary`, `--app-rag-poison`, `--app-timeout` and `--app-stress` require `--target app:<url>`, because ignoring them would be a silent coverage gap.
+    - Guess at request shapes: `--app-headers`, `--app-body` and `--app-session-init` must be JSON objects, because falling back to a default shape would talk to the wrong contract and report the app as unreachable.
+    - Throw a session value away: `--app-session-init` without `--app-session-field` is rejected, because the value obtained would have nowhere to go.
+    - Ask somebody else's app to write attack prompts: `--redteam-generate` needs a model target, because a running application is not a model to compose prompts with.
+    - Quietly substitute prompt sets: `--redteam-set` and `--redteam-benign` paths must exist, because silently using the built-in set would test something other than what was asked for.
 """
 
 import json
