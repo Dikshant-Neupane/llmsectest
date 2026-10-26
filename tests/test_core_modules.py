@@ -754,6 +754,108 @@ class TestSARIFGeneration:
         assert lat["probes_measured"] == 1
         assert lat["peak_seconds"] == 4.0
 
+    @staticmethod
+    def _finding(port=8103, case="APP-x-LLM01-direct", message="marker came back", nodeid=None):
+        """One behavioural finding against a locally launched target.
+
+        The port is a parameter because it is the thing that changes between two runs
+        against the same application, which is what these tests are about.
+        """
+        return TestResult(
+            nodeid=nodeid or f"tests/suite/test_llm01.py::test_injection[{case}]",
+            location=("src/llmsectest/suite/test_llm01.py", 20, "test_injection"),
+            outcome="failed",
+            markers=["security", "owasp_llm01"],
+            properties={
+                "llmsec_case": case,
+                "llmsec_finding": message,
+                "llmsec_artifact_uri": f"http://127.0.0.1:{port}/chat",
+            },
+        )
+
+    @staticmethod
+    def _identity(result_row):
+        return result_row["partialFingerprints"]["llmsecTestFindingHash/v1"]
+
+    def _generate(self, results):
+        generator = SARIFGenerator("llmsectest", "0.1.0", source_root=".")
+        return json.loads(generator.generate(results))
+
+    def test_sarif_finding_carries_a_partial_fingerprint(self):
+        """Every finding carries result identity, which GitHub marks Required.
+
+        Without it GitHub cannot tell that a result in this upload is the same finding
+        as one in the last, so each scan closes the previous scan's alerts and opens
+        new ones — and an alert somebody dismissed as a false positive comes back.
+        """
+        row = self._generate([self._finding()])["runs"][0]["results"][0]
+        assert "partialFingerprints" in row
+        assert len(self._identity(row)) == 64  # sha256 hex
+
+    def test_sarif_fingerprint_survives_an_ephemeral_port(self):
+        """THE REGRESSION CASE. A cohort member is launched on whatever port is free,
+        so the same application is :8103 today and :8211 tomorrow. If the port reached
+        the hash, every finding would be new on every run — exactly the churn the
+        fingerprint exists to stop."""
+        today = self._generate([self._finding(port=8103)])["runs"][0]["results"][0]
+        tomorrow = self._generate([self._finding(port=8211)])["runs"][0]["results"][0]
+        assert self._identity(today) == self._identity(tomorrow)
+
+    def test_sarif_fingerprint_ignores_our_own_rewording(self):
+        """A finding whose message we improve is the same finding. The identity has to
+        survive our edits, or dismissing a false positive would be undone by a better
+        sentence."""
+        before = self._generate([self._finding(message="marker came back")])["runs"][0]["results"][0]
+        after = self._generate([self._finding(message="the injected marker was echoed verbatim")])["runs"][0]["results"][0]
+        assert self._identity(before) == self._identity(after)
+
+    def test_sarif_fingerprint_separates_two_cases_under_one_rule(self):
+        """Two concrete attacks asking the same rule's question are two findings, so
+        they must not collapse into one alert."""
+        rows = self._generate([
+            self._finding(case="APP-x-LLM01-direct"),
+            self._finding(case="APP-x-LLM01-delimiter"),
+        ])["runs"][0]["results"]
+        assert len({self._identity(r) for r in rows}) == 2
+
+    def test_sarif_fingerprint_separates_two_targets(self):
+        """The same probe against two different applications is two findings."""
+        a = self._generate([self._finding()])["runs"][0]["results"][0]
+        b = TestResult(
+            nodeid="tests/suite/test_llm01.py::test_injection[APP-x-LLM01-direct]",
+            location=("src/llmsectest/suite/test_llm01.py", 20, "test_injection"),
+            outcome="failed",
+            markers=["security", "owasp_llm01"],
+            properties={
+                "llmsec_case": "APP-x-LLM01-direct",
+                "llmsec_finding": "marker came back",
+                "llmsec_artifact_uri": "http://127.0.0.1:8103/api/chat",
+            },
+        )
+        other = self._generate([b])["runs"][0]["results"][0]
+        assert self._identity(a) != self._identity(other)
+
+    def test_sarif_automation_details_strips_the_port(self):
+        """Two scans of one application group as one alert series, and the port — which
+        is not part of what was scanned — cannot split them."""
+        today = self._generate([self._finding(port=8103)])["runs"][0]
+        tomorrow = self._generate([self._finding(port=8211)])["runs"][0]
+        assert today["automationDetails"]["id"] == "llmsectest/http://127.0.0.1/chat/"
+        assert today["automationDetails"]["id"] == tomorrow["automationDetails"]["id"]
+
+    def test_sarif_automation_details_present_with_no_target(self):
+        """A run that scanned no application still carries a valid id rather than
+        omitting the field: grouping every such run together is the honest answer when
+        there is nothing to tell them apart."""
+        bare = TestResult(
+            nodeid="tests/suite/test_llm03.py::test_manifest",
+            location=("src/llmsectest/suite/test_llm03.py", 10, "test_manifest"),
+            outcome="passed",
+            markers=["security", "owasp_llm03"],
+            properties={},
+        )
+        assert self._generate([bare])["runs"][0]["automationDetails"]["id"] == "llmsectest/"
+
     def test_sarif_version(self, sample_results):
         """Verify SARIF output uses version 2.1.0."""
         generator = SARIFGenerator("llmsectest", "0.1.0", source_root=".")

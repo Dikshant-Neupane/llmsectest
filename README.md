@@ -90,6 +90,16 @@ you.
   produce the same empty report. Each held probe also leaves its own SARIF row with the reply it
   gave (`kind: pass`, `level: none`), so you can read what your app said when it refused. Those
   rows never count as findings.
+- **Your app refusing a probe is not the same as our scan failing to send it.** One is your input
+  guard working; the other is a measurement that did not happen. Both stay undelivered, so nothing
+  is claimed about what was never tested, but the refusal is marked as a refusal in the console
+  summary and in the SARIF rather than being filed under transport errors. A `401` or `403` is not
+  counted as one: that is the scan being unauthenticated.
+- **Two scans of the same target produce the same result identities.** Every result carries a
+  `partialFingerprints` entry computed from the target, the rule and the probe. The run carries an
+  `automationDetails.id`. Upload to GitHub code scanning twice and your alerts get updated. Without
+  fingerprints they'd be closed and reopened every time, because our findings locate at a URL whose
+  port changes per run. That's what used to bring a dismissed false positive back.
 - **A target we could not reach is never reported as a safe one.** Unreachable, non-JSON, dead
   partway through, out of time: those probes are recorded inconclusive by name and technique, and a
   run holding one withholds its verdict as `INCOMPLETE` rather than claiming `PASSED`.

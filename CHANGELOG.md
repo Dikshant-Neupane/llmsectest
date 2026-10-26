@@ -12,6 +12,24 @@ forward-looking plan is the [roadmap](https://llmsec.dev/#roadmap).
 
 ### Added
 
+- 2026-10-26: **every SARIF result now carries a stable identity.** Each finding gets a
+  `partialFingerprints` entry. So does each withstood `kind: pass` row. The run gets an
+  `automationDetails.id`. GitHub's code-scanning ingest marks that field Required and uses it to
+  decide whether two uploads describe the same finding. We emitted none. Our behavioural results
+  locate at the target URL, which for an ephemeral port is a different URL every run, so each
+  upload closed the previous alerts and opened fresh ones. A false positive somebody had dismissed
+  came back. The fingerprint now comes from the port-stripped target, the rule and the probe, so
+  neither an ephemeral port nor a reworded probe changes it. **Not yet measured:** nobody has
+  uploaded two consecutive scans to GitHub and watched the alerts hold.
+
+- 2026-10-26: **an input-boundary refusal is told apart from a transport failure** (outside
+  contribution, PR #25 by `dbdefault`, closing issue #18). `undelivered` used to mean two opposite
+  things. "Your app refused this input at its guard" says the application defended itself. "The
+  request never arrived" says our scan measured nothing. The refusal now carries its own marker
+  through the adapters, the runner, the console summary and the SARIF properties. `undelivered`
+  stays the superset, so nothing that read it before reads less now. HTTP 401 and 403 don't count:
+  those mean the scan isn't authenticated.
+
 - 2026-10-22: **both report renderers now show the two axes beside the oracle's verdict.** The
   capability and refusal-content verdicts have been computed and written into the SARIF since
   0.4.1, and no report displayed either of them, so for a reader they did not exist. Each finding

@@ -1,7 +1,9 @@
 """SARIF v2.1.0 report generator for pytest results."""
 
+import hashlib
 import json
 import os
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -63,6 +65,60 @@ def _as_float(value: Any) -> float | None:
     return None
 
 
+#: The key our result identity travels under. GitHub's SARIF reference marks
+#: ``partialFingerprints`` *Required* and uses it to decide whether a result in this
+#: upload is the same finding as one in the last: without it, "a new alert will be
+#: created, and the old one will be closed", so a scan closes the previous scan's
+#: alerts and an alert somebody dismissed as a false positive comes back.
+#:
+#: Its documented fallback does not reach us. ``github/codeql-action`` populates
+#: fingerprints only for results whose location has a ``region.startLine`` and resolves
+#: to a file in the checkout; a behavioural finding's location is the target endpoint,
+#: which has neither. So the identity has to be ours to compute.
+FINGERPRINT_KEY = "llmsecTestFindingHash/v1"
+
+#: A target URL with the port captured separately, because the port is the one part of
+#: a locally launched application's address that changes between runs.
+_TARGET_URI = re.compile(r"^(?P<scheme>[a-z][a-z0-9+.\-]*://)(?P<host>[^/:]+)(?::\d+)?(?P<rest>.*)$", re.I)
+
+
+def _stable_target(uri: str) -> str:
+    """``uri`` with an ephemeral port removed, so one target has one identity.
+
+    A cohort member is launched on whatever port is free, so the same application is
+    ``http://127.0.0.1:8103/chat`` today and ``:8211`` tomorrow. Hashing the raw URI
+    would therefore give the same finding a new identity on every run — the failure
+    this function exists to prevent. A path, a repo-relative artifact or anything else
+    without a scheme and host is returned untouched: there is nothing ephemeral in it.
+    """
+    match = _TARGET_URI.match(uri)
+    if not match:
+        return uri
+    return f"{match['scheme']}{match['host']}{match['rest']}"
+
+
+def _finding_identity(result: TestResult, rule_id: str, location: dict[str, Any]) -> str:
+    """A stable identity for one finding, as a hex digest.
+
+    WHAT IS IN IT, and why each part. The ``rule_id`` and the pytest ``nodeid`` say
+    which question was put; the probe case says which concrete attack asked it, so two
+    cases under one rule stay two findings; the port-stripped target says what was
+    asked. Together they are the finding, and they are the same on the next run.
+
+    WHAT IS DELIBERATELY NOT IN IT: the message, the severity, the duration, the
+    timestamp and the raw port. A finding whose wording we improve, or whose score a
+    re-run nudges, is still the same finding — the identity has to survive our own
+    edits or it is not an identity. This mirrors the one comparable tool that solved
+    it (Promptfoo hashes a normalized, length-capped finding text with its file and
+    rule) while leaving out the text, which in our reports quotes the target's reply
+    and so would change whenever the target phrases itself differently.
+    """
+    artifact = location.get("artifactLocation", {}).get("uri", "")
+    case = result.properties.get("llmsec_case") or ""
+    parts = (rule_id, result.nodeid or result.test_name or "", str(case), _stable_target(str(artifact)))
+    return hashlib.sha256("\x1f".join(parts).encode("utf-8")).hexdigest()
+
+
 class SARIFGenerator:
     """Generates SARIF v2.1.0 compliant reports."""
 
@@ -110,6 +166,15 @@ class SARIFGenerator:
             "results": sarif_results,
             "artifacts": artifacts,
             "columnKind": "utf16CodeUnits",
+            # WHICH SCAN THIS IS. GitHub groups alerts by the run's automation id, so two
+            # scans of two different applications uploaded from one repository are two
+            # series rather than one that keeps overwriting itself. The id is the target
+            # with its ephemeral port stripped, for the same reason the fingerprints strip
+            # it: the port is not part of what was scanned. With no target recorded (a
+            # white-box-only run) the category stays bare, which is a valid id and groups
+            # every such run together — the honest answer when there is nothing to tell
+            # them apart.
+            "automationDetails": {"id": self._automation_id(results)},
             "invocations": [
                 {
                     "executionSuccessful": True,
@@ -501,6 +566,26 @@ class SARIFGenerator:
 
         return list(rules.values())
 
+    def _automation_id(self, results: list[TestResult]) -> str:
+        """The id under which GitHub groups this run's alerts.
+
+        SARIF's ``automationDetails.id`` conventionally ends in ``/``, which marks the
+        part before it as the category and lets several uploads coexist. We key it on
+        the application that was scanned, port-stripped, so scanning two targets from
+        one repository keeps two alert series instead of each upload closing the
+        other's findings — the same failure the fingerprints prevent per result, one
+        level up.
+        """
+        for result in results:
+            # ``llmsec_artifact_uri`` IS the scanned target for a behavioural finding:
+            # ``suite/conftest.py`` records the stripped ``app:`` endpoint under it. For a
+            # white-box finding it is a repo-relative manifest path instead, which is
+            # equally the thing that was scanned, so one property answers both.
+            target = result.properties.get("llmsec_artifact_uri")
+            if target:
+                return f"llmsectest/{_stable_target(str(target))}/"
+        return "llmsectest/"
+
     def _physical_location(self, result: TestResult) -> dict[str, Any]:
         """Where the finding points.
 
@@ -554,13 +639,18 @@ class SARIFGenerator:
                 elif owasp_category:
                     message_text = f"[{owasp_category.id}] {message_text}"
 
+                rule_id = self._get_rule_id(result)
+                physical = self._physical_location(result)
                 sarif_result = {
-                    "ruleId": self._get_rule_id(result),
+                    "ruleId": rule_id,
                     "level": self._get_severity_level(result),
                     "message": {"text": message_text},
                     "locations": [
-                        {"physicalLocation": self._physical_location(result)}
+                        {"physicalLocation": physical}
                     ],
+                    "partialFingerprints": {
+                        FINGERPRINT_KEY: _finding_identity(result, rule_id, physical)
+                    },
                     "properties": {
                         "test_outcome": result.outcome,
                         "test_duration": result.duration,
@@ -638,14 +728,19 @@ class SARIFGenerator:
         truncated = len(reply) > WITHSTOOD_REPLY_LIMIT
         case = str(result.properties.get("llmsec_case") or result.test_name)
 
+        rule_id = self._get_rule_id(result)
+        physical = self._physical_location(result)
         sarif_result = {
-            "ruleId": self._get_rule_id(result),
+            "ruleId": rule_id,
             "kind": "pass",
             "level": "none",
             "message": {"text": f"attack withstood: {case}"},
             "locations": [
-                {"physicalLocation": self._physical_location(result)}
+                {"physicalLocation": physical}
             ],
+            "partialFingerprints": {
+                FINGERPRINT_KEY: _finding_identity(result, rule_id, physical)
+            },
             "properties": {
                 "test_outcome": result.outcome,
                 "test_duration": result.duration,

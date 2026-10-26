@@ -311,11 +311,17 @@ token, where `unreachable` would send you to your DNS.
 **The fourth case is the one with nothing to fix: your app refused the input on purpose.** Some
 applications validate the prompt before it reaches the model. If yours rejects, say, anything
 matching an XSS pattern list, the probes carrying `<script>` or `javascript:` payloads never reach
-the model at all. They are recorded undelivered like any other error. That is the right
-record: nothing about your output handling was measured, so nothing may be claimed about it. The remedy is
-what differs. There isn't one. Tell the two apart by sending one of the named probes by hand. A
-refusal that quotes your own validator ("query contains invalid content") is your guardrail; a 500
-with a stack trace is not.
+the model at all. Either way that's the right record. Nothing about your output handling was
+measured, so nothing may be claimed about it.
+
+But the two facts are opposite. One says your app defended itself. The other says our scan broke.
+**Since 0.4.2 the scanner tells them apart for you.** A probe your app refused at its input
+boundary is marked as a refusal in the console summary and in the SARIF. `undelivered` is still the
+superset, so anything you already read off that flag reads the same. HTTP `401` and `403` don't
+count as refusals. Those mean your scan isn't authenticated.
+
+There's no remedy for the refusal case. A refusal quoting your own validator ("query contains
+invalid content") is your guardrail working. A 500 with a stack trace isn't.
 
 **The fifth case answers 200 and says nothing. It is the one that looks most like success.**
 An agent framework can finish a turn without producing an assistant message: the model calls a tool,
