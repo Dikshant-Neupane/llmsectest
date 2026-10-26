@@ -18,8 +18,8 @@ forward-looking plan is the [roadmap](https://llmsec.dev/#roadmap).
   decide whether two uploads describe the same finding. We emitted none. Our behavioural results
   locate at the target URL, which for an ephemeral port is a different URL every run, so each
   upload closed the previous alerts and opened fresh ones. A false positive somebody had dismissed
-  came back. The fingerprint now comes from the port-stripped target, the rule and the probe, so
-  neither an ephemeral port nor a reworded probe changes it. **Not yet measured:** nobody has
+  came back. The fingerprint now comes from the port-stripped target, the rule and the probe. An
+  ephemeral port leaves it alone. So does a reworded probe. **Not yet measured:** nobody has
   uploaded two consecutive scans to GitHub and watched the alerts hold.
 
 - 2026-10-26: **an input-boundary refusal is told apart from a transport failure** (outside
