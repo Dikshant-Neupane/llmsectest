@@ -21,6 +21,14 @@ forward-looking plan is the [roadmap](https://llmsec.dev/#roadmap).
   to the banner without a pip version when PyPI cannot be reached, so the docs
   build stays green offline. (Closes #26.)
 
+- 2026-10-26: **SARIF results now carry their OWASP category as a taxonomy reference.**
+  The run declares an OWASP LLM Top 10 taxonomy (all ten categories as `taxa`, in the
+  report's 2026 edition numbering, under one stable guid), and each finding and withstood
+  row references the taxon it belongs to — so consumers that understand SARIF can group
+  and filter by category without knowing this tool's property names. The existing
+  `properties.owasp_category` / `owasp_name` / `cwe_ids` keys stay exactly as they were:
+  removing them would break readers that already parse them. (Closes #27.)
+
 - 2026-10-26: **every SARIF result now carries a stable identity.** Each finding gets a
   `partialFingerprints` entry. So does each withstood `kind: pass` row. The run gets an
   `automationDetails.id`. GitHub's code-scanning ingest marks that field Required and uses it to
@@ -64,6 +72,15 @@ forward-looking plan is the [roadmap](https://llmsec.dev/#roadmap).
   `validate` summary line, which names the transcripts separately.
 
 ### Fixed
+
+- 2026-10-26: **`--app-session-field` is now minted once per probe, not once per request.**
+  `complete` called the session mint on every request while the docstring promised a value
+  "for **this probe**", so a probe that sent two requests landed its second one in a fresh
+  conversation that did not hold what the first established — and the server-issued shape paid
+  one extra setup request per request instead of per probe. The adapter now caches the value
+  until a new probe starts (`begin_probe`, called by the probe runner before every probe),
+  so one probe's requests share one value and the next probe mints a fresh one. Direct
+  `complete` callers that never signal a boundary share one value until they do. (Closes #19.)
 
 - 2026-10-22: **a report no longer claims the 2025 OWASP numbering.** Both renderer footers
   carried the string `OWASP LLM Top 10 (2025)` hardcoded, so every report generated after the

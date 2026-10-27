@@ -142,6 +142,11 @@ endpoint; `method` (default `POST`), `headers` and `body` are optional. An unkno
 refused, so a misspelled `response_path` cannot quietly leave the scan auto-detecting some other
 field.
 
+A probe that sends more than one request reuses the same value for all of them, in both shapes
+above; the next probe gets a fresh one. The boundary is the probe, not the request: without it, a
+two-request probe would land its second request in a conversation that does not hold what the
+first one established.
+
 **A session step that fails is inconclusive.** It never scores as a finding. It never scores as
 an LLM10 timeout either. An application that never answered a setup request has said nothing about
 how it bounds the work of a probe it never received.
@@ -410,6 +415,17 @@ provider's own `Retry-After` value when it sent one, and the run exits non-zero 
 above. There is no retry or backoff: getting the count right comes first. A retry loop
 built over a wrong count would only produce a confidently wrong number. Slow the scan down or raise your
 quota, then run it again.
+
+## What this tool will not do
+
+The same list the command's help text ends with, so the behaviour and the documentation cannot drift apart:
+
+- It will not send load nobody asked for: `--app-stress` below 2 is rejected, never rounded up, because two simultaneous requests against somebody else's application would be traffic nobody authorised.
+- It will not silently drop app inputs: `--app-prompt`, `--app-secret`, `--app-action`, `--app-canary`, `--app-rag-poison`, `--app-timeout` and `--app-stress` require `--target app:<url>`, because ignoring them would be a silent coverage gap.
+- It will not guess at request shapes: `--app-headers`, `--app-body` and `--app-session-init` must be JSON objects, because falling back to a default shape would talk to the wrong contract and report the app as unreachable.
+- It will not throw a session value away: `--app-session-init` without `--app-session-field` is rejected, because the value obtained would have nowhere to go.
+- It will not ask somebody else's app to write attack prompts: `--redteam-generate` needs a model target, because a running application is not a model to compose prompts with.
+- It will not quietly substitute prompt sets: `--redteam-set` and `--redteam-benign` paths must exist, because silently using the built-in set would test something other than what was asked for.
 
 ## You found something in somebody else's application. Where does it go?
 
