@@ -4,36 +4,30 @@
 [![docs](https://github.com/wehnsdaefflae/llmsectest/actions/workflows/docs.yml/badge.svg)](https://docs.llmsec.dev)
 [![license: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/wehnsdaefflae/llmsectest/blob/main/LICENSE)
 
-Your LLM application can be talked into ignoring its instructions, into repeating a secret it
-was told to keep, or into acting on an instruction hidden in a document it retrieved. Your
-test suite cannot see any of that. The scanners already in your pipeline cannot either.
+Ask your application to ignore its instructions. It will probably refuse. Now put that same
+instruction inside a document it retrieves. Quite often it does what the document says.
 
-LLMSecTest attacks your running application the way an attacker would, then tells you what
-got out. It runs the
-[OWASP LLM Top 10 (2026)](https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/)
-against a live endpoint and writes SARIF your CI already knows how to read. It is a pytest
-plugin, so it goes in the test run you already have.
+You cannot find that by reading the code. You have to run the thing and try it. That's all
+this tool does. It talks to your application over its own endpoint, a few hundred times, the
+way somebody would who wanted your secret out of it, then tells you what came back.
+It runs the
+[OWASP LLM Top 10 (2026)](https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/),
+it is a pytest plugin, and it writes SARIF, so it goes where your tests already go.
 
 ```bash
 pip install llmsectest
 llmsectest --target app:http://localhost:8000/chat --app-secret "your-canary"
 ```
 
-That is a real scan of a real endpoint. [**Quickstart**](https://docs.llmsec.dev/quickstart/)
-takes a minute and explains what it printed, including why six of the ten categories stay blank
-until you give them something to work with.
+Six of the ten categories will come back blank. They should. Nobody has told the tool what
+your secret is, so it cannot check whether your app gives it away. The
+[**Quickstart**](https://docs.llmsec.dev/quickstart/) fixes that in a minute.
 
-**See what it finds before you install it:** [llmsec.dev/reports](https://llmsec.dev/reports/)
-carries the full report for every application in our own test cohort, byte-identical to what
-the tool wrote. That includes the ones that withstood everything. The members we hold back are
-listed with the reason.
-
-**To hear when it changes.** Watch this repository for
-[releases](https://github.com/wehnsdaefflae/llmsectest/releases). That is one notification per
-version. Each one says what moved for somebody running a scan, including which findings a
-scoring fix took back. 0.4.0 withdrew three this project had already published. One of those
-three had already gone to a project's maintainers. If you scanned your application with an
-earlier version, that is the part you want.
+Don't take my word for any of it. [llmsec.dev/reports](https://llmsec.dev/reports/) has the
+full output for every application we scan, byte for byte as the tool wrote it, the boring
+clean ones included. [Releases](https://github.com/wehnsdaefflae/llmsectest/releases) say what changed,
+including findings we took back: 0.4.0 withdrew three, one of which had already gone to a
+project's maintainers.
 
 > **Status: pre-alpha, under active grant development.** All ten OWASP categories ship a real
 > probe or scanner and none is a placeholder. A scan that cannot reach one says so instead of
@@ -82,8 +76,14 @@ in [Test your own app](https://docs.llmsec.dev/guides/target-app/).
 
 ## What a clean row actually means
 
-This is the part of the tool worth reading the docs for. It is where most scanners quietly mislead
-you.
+Here is the trap. You scan your app, every row comes back clean, and you feel good. But there
+are two quite different ways to get an empty report: your application fought off every attack,
+or the attacks never arrived. A typo in one flag and nothing was ever sent. On paper that
+is perfect security.
+
+So every scan counts what it delivered and what got held off. A run that could not reach
+your app says `INCOMPLETE` where another tool would say `PASSED`. That one rule, applied
+everywhere it can be, is most of what the list below says.
 
 - **Every scan reports what it delivered and what the target held off**, per category, as an
   `attacks_withstood` property. Without it, a well-defended app and a scan that attacked nothing
