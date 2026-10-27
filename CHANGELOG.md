@@ -12,6 +12,15 @@ forward-looking plan is the [roadmap](https://llmsec.dev/#roadmap).
 
 ### Added
 
+- 2026-10-26: **every docs page now carries the release banner, and the banner
+  names what `pip install` gives.** The banner used to reach only the seven pages
+  that included it by hand, and it named the tree version without the pip version.
+  A build hook now injects the snippet into every page that lacks it (pages that
+  already include it, and the snippet itself, are left alone), and the banner is
+  generated with the pip version fetched from PyPI at build time — falling back
+  to the banner without a pip version when PyPI cannot be reached, so the docs
+  build stays green offline. (Closes #26.)
+
 - 2026-10-26: **SARIF results now carry their OWASP category as a taxonomy reference.**
   The run declares an OWASP LLM Top 10 taxonomy (all ten categories as `taxa`, in the
   report's 2026 edition numbering, under one stable guid), and each finding and withstood
