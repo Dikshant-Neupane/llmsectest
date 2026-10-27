@@ -18,6 +18,7 @@ from .constants import SARIF_SEVERITY_MAP, SEVERITY_SCORES
 from .cvss import cvss_for_category
 from .models import TestResult
 from .owasp_metadata import (
+    OWASP_LLM_CATEGORIES,
     get_cwe_tags,
     get_owasp_category,
     get_owasp_markers_from_test,
@@ -34,6 +35,54 @@ from .statistics import attack_tally, exercised_categories, withstood_probes
 #: ``withstood_transcripts``, so a truncated transcript can never be mistaken for a
 #: complete one.
 WITHSTOOD_REPLY_LIMIT = 4000
+
+#: The OWASP LLM Top 10 taxonomy declared on every run. Consumers key on this
+#: guid to group and filter results by category across runs, so it is a fixed
+#: constant, never derived from the run or the edition: changing it would split
+#: every consumer's history in two.
+OWASP_TAXONOMY_GUID = "75fe736f-2c9f-4f09-8c70-f22a263bfe90"
+OWASP_TAXONOMY_NAME = "OWASP LLM Top 10"
+
+
+def _owasp_taxonomy() -> dict[str, Any]:
+    """The OWASP LLM Top 10 taxonomy, in the edition this report publishes under.
+
+    Every category is declared, not just the ones this run exercised: a taxonomy
+    is the classification system, and results reference the subset they belong
+    to. Taxon ids are the same edition-adjusted ids the results' properties
+    already publish, so a result's taxa reference always matches a declared taxon.
+    """
+    edition = resolve_edition()
+    taxa = []
+    for marker in OWASP_LLM_CATEGORIES:
+        category = get_owasp_category(marker)
+        taxon: dict[str, Any] = {
+            "id": category.id,
+            "name": category.name,
+            "shortDescription": {"text": category.description},
+            "fullDescription": {"text": category.full_description},
+        }
+        if category.references:
+            taxon["helpUri"] = category.references[0]
+        taxa.append(taxon)
+    return {
+        "guid": OWASP_TAXONOMY_GUID,
+        "name": OWASP_TAXONOMY_NAME,
+        "version": edition,
+        "taxa": taxa,
+    }
+
+
+def _taxa_reference(category: Any) -> list[dict[str, Any]] | None:
+    """The ``taxa`` entry pointing a result at its OWASP category, or None."""
+    if category is None:
+        return None
+    return [
+        {
+            "id": category.id,
+            "toolComponent": {"name": OWASP_TAXONOMY_NAME, "guid": OWASP_TAXONOMY_GUID},
+        }
+    ]
 
 
 def _as_int(value: Any) -> int | None:
@@ -182,6 +231,12 @@ class SARIFGenerator:
                 }
             ]
         }
+
+        # Declare the OWASP taxonomy first-class, so consumers that understand
+        # SARIF can group and filter by category without knowing our property
+        # names. The properties keys below stay exactly as they were: removing
+        # them would break readers that already parse them.
+        run["taxonomies"] = [_owasp_taxonomy()]
 
         # Collect OWASP markers for compliance mapping
         # **The categories this run put to the target, never every marker present
@@ -667,6 +722,7 @@ class SARIFGenerator:
                 if owasp_category:
                     sarif_result["properties"]["owasp_category"] = owasp_category.id
                     sarif_result["properties"]["owasp_name"] = owasp_category.name
+                    sarif_result["taxa"] = _taxa_reference(owasp_category)
 
                     # Attach the category's CVSS v4.0 base score to the finding.
                     cvss_score = cvss_for_category(owasp_markers[0]) if owasp_markers else None
@@ -771,6 +827,7 @@ class SARIFGenerator:
         if owasp_category:
             sarif_result["properties"]["owasp_category"] = owasp_category.id
             sarif_result["properties"]["owasp_name"] = owasp_category.name
+            sarif_result["taxa"] = _taxa_reference(owasp_category)
 
         return sarif_result
 
