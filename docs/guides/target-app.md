@@ -143,7 +143,7 @@ refused, so a misspelled `response_path` cannot quietly leave the scan auto-dete
 field.
 
 A probe that sends more than one request reuses the same value for all of them, in both shapes
-above; the next probe gets a fresh one. The boundary is the probe, not the request: without it, a
+above; the next probe gets a fresh one. The probe is the boundary. Were it the request instead, a
 two-request probe would land its second request in a conversation that does not hold what the
 first one established.
 

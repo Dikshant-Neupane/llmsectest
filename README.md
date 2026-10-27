@@ -27,7 +27,9 @@ Don't take my word for any of it. [llmsec.dev/reports](https://llmsec.dev/report
 full output for every application we scan, byte for byte as the tool wrote it, the boring
 clean ones included. [Releases](https://github.com/wehnsdaefflae/llmsectest/releases) say what changed,
 including findings we took back: 0.4.0 withdrew three, one of which had already gone to a
-project's maintainers.
+project's maintainers. Watch this repository with **Releases only** if you want that in your
+inbox. Every release note says in full what the new version detects that the old one missed.
+It also says what the tool stopped claiming.
 
 > **Status: pre-alpha, under active grant development.** All ten OWASP categories ship a real
 > probe or scanner and none is a placeholder. A scan that cannot reach one says so instead of
