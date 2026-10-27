@@ -26,6 +26,7 @@ from __future__ import annotations
 import ast
 import pathlib
 import re
+import sys
 
 import pytest
 
@@ -290,3 +291,16 @@ def test_the_guide_sweep_reads_the_page_that_motivated_it():
     for option in ("--app-request-field", "--app-response-path", "--app-session-init",
                    "--app-rag-poison"):
         assert option in named, f"{option} is on the page and the sweep no longer sees it"
+
+
+def test_help_ends_with_what_the_tool_will_not_do(capsys, monkeypatch):
+    """#29: --help ends with the refusals and the reason for each."""
+    monkeypatch.setattr(sys, "argv", ["llmsectest", "--help"])
+    assert cli.main() == 0
+    out = capsys.readouterr().out
+    assert "What this tool will not do:" in out
+    section = out.split("What this tool will not do:")[1]
+    for flag in ("--app-stress", "--app-prompt", "--app-headers",
+                 "--app-session-init", "--app-session-field",
+                 "--redteam-generate", "--redteam-set"):
+        assert flag in section, f"{flag} missing from the refusals section"

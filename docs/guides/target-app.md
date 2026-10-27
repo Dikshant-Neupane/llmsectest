@@ -411,6 +411,17 @@ above. There is no retry or backoff: getting the count right comes first. A retr
 built over a wrong count would only produce a confidently wrong number. Slow the scan down or raise your
 quota, then run it again.
 
+## What this tool will not do
+
+The same list the command's help text ends with, so the behaviour and the documentation cannot drift apart:
+
+- It will not send load nobody asked for: `--app-stress` below 2 is rejected, never rounded up, because two simultaneous requests against somebody else's application would be traffic nobody authorised.
+- It will not silently drop app inputs: `--app-prompt`, `--app-secret`, `--app-action`, `--app-canary`, `--app-rag-poison`, `--app-timeout` and `--app-stress` require `--target app:<url>`, because ignoring them would be a silent coverage gap.
+- It will not guess at request shapes: `--app-headers`, `--app-body` and `--app-session-init` must be JSON objects, because falling back to a default shape would talk to the wrong contract and report the app as unreachable.
+- It will not throw a session value away: `--app-session-init` without `--app-session-field` is rejected, because the value obtained would have nowhere to go.
+- It will not ask somebody else's app to write attack prompts: `--redteam-generate` needs a model target, because a running application is not a model to compose prompts with.
+- It will not quietly substitute prompt sets: `--redteam-set` and `--redteam-benign` paths must exist, because silently using the built-in set would test something other than what was asked for.
+
 ## You found something in somebody else's application. Where does it go?
 
 Everything above ends at a report. If the application is your own, that is the end of it. If you
