@@ -56,6 +56,15 @@ forward-looking plan is the [roadmap](https://llmsec.dev/#roadmap).
 
 ### Fixed
 
+- 2026-10-26: **`--app-session-field` is now minted once per probe, not once per request.**
+  `complete` called the session mint on every request while the docstring promised a value
+  "for **this probe**", so a probe that sent two requests landed its second one in a fresh
+  conversation that did not hold what the first established — and the server-issued shape paid
+  one extra setup request per request instead of per probe. The adapter now caches the value
+  until a new probe starts (`begin_probe`, called by the probe runner before every probe),
+  so one probe's requests share one value and the next probe mints a fresh one. Direct
+  `complete` callers that never signal a boundary share one value until they do. (Closes #19.)
+
 - 2026-10-22: **a report no longer claims the 2025 OWASP numbering.** Both renderer footers
   carried the string `OWASP LLM Top 10 (2025)` hardcoded, so every report generated after the
   2026 migration named the wrong edition on paper and on screen. The footer now states the

@@ -145,6 +145,14 @@ class MlodaAdapter(LLMAdapter):
 
     # -- the adapter contract ----------------------------------------------------------
 
+    def begin_probe(self) -> None:
+        """Forward the probe boundary to the wrapped adapter.
+
+        Without this, an app adapter wrapped here would never reset its session
+        cache and every probe of a scan would share one session.
+        """
+        self._inner.begin_probe()
+
     def complete(self, request: CompletionRequest) -> CompletionResponse:
         # The inner adapter owns its own transport guard; this one wraps the mloda call so
         # an unreachable data backend reaches run_probe as an AdapterError rather than
